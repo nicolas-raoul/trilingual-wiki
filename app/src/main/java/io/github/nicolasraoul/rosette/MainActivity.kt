@@ -220,6 +220,9 @@ class MainActivity : AppCompatActivity() {
             displayLanguages[2] to webViewJA
         )
         
+        // Reinitialize suggestions adapter with new language names
+        setupSuggestions()
+        
         // Reload initial pages with new languages
         isProgrammaticLoad = true
         pagesToLoad = displayLanguages.size
@@ -242,15 +245,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getDisplayLanguageNames(): List<String> {
+        return displayLanguages.map { lang ->
+            when (lang) {
+                "en" -> "English"
+                "fr" -> "French"
+                "ja" -> "Japanese"
+                "es" -> "Spanish"
+                "de" -> "German"
+                "it" -> "Italian"
+                "pt" -> "Portuguese"
+                "ru" -> "Russian"
+                "zh" -> "Chinese"
+                "ar" -> "Arabic"
+                "hi" -> "Hindi"
+                "ko" -> "Korean"
+                else -> lang.uppercase()
+            }
+        }
+    }
+
     private fun setupSuggestions() {
-        suggestionsAdapter = SearchSuggestionsAdapter { suggestion ->
+        val displayLanguageNames = getDisplayLanguageNames()
+        suggestionsAdapter = SearchSuggestionsAdapter({ suggestion ->
             programmaticTextChange = true
             searchBar.setText(suggestion.label)
             suggestionsRecyclerView.visibility = View.GONE
             hideKeyboard()
             searchBar.clearFocus()
             performSearchFromSuggestion(suggestion)
-        }
+        }, displayLanguageNames)
         suggestionsRecyclerView.layoutManager = LinearLayoutManager(this)
         suggestionsRecyclerView.adapter = suggestionsAdapter
 
@@ -292,7 +316,20 @@ class MainActivity : AppCompatActivity() {
                             entities?.get(searchResult.id)?.let { entity ->
                                 val imageName = (entity.claims?.get("P18")?.firstOrNull()?.mainsnak?.datavalue?.value as? String)?.replace(" ", "_")
                                 val imageUrl = if (imageName != null) "https://commons.wikimedia.org/w/thumb.php?f=$imageName&w=100" else null
-                                SearchSuggestion(searchResult.id, searchResult.label, searchResult.description ?: "", imageUrl)
+                                
+                                // Check if articles exist in any of the display languages
+                                val sitelinks = entity.sitelinks
+                                val hasArticleInAnyLanguage = displayLanguages.any { lang ->
+                                    sitelinks?.containsKey("${lang}wiki") == true
+                                }
+                                
+                                SearchSuggestion(
+                                    searchResult.id, 
+                                    searchResult.label, 
+                                    searchResult.description ?: "", 
+                                    imageUrl,
+                                    hasArticleInAnyLanguage = hasArticleInAnyLanguage
+                                )
                             }
                         }
                         suggestionsAdapter.updateData(suggestions)
@@ -572,11 +609,13 @@ data class SearchSuggestion(
     val label: String,
     val description: String,
     val thumbnailUrl: String?,
-    val isLoader: Boolean = false
+    val isLoader: Boolean = false,
+    val hasArticleInAnyLanguage: Boolean = true
 )
 
 class SearchSuggestionsAdapter(
-    private val onClick: (SearchSuggestion) -> Unit
+    private val onClick: (SearchSuggestion) -> Unit,
+    private val displayLanguageNames: List<String>
 ) : RecyclerView.Adapter<SearchSuggestionsAdapter.ViewHolder>() {
 
     private var suggestions = mutableListOf<SearchSuggestion>()
@@ -622,7 +661,23 @@ class SearchSuggestionsAdapter(
                 loadingIndicator.visibility = View.GONE
                 titleTextView.text = suggestion.label
                 descriptionTextView.text = suggestion.description
-                itemView.setOnClickListener { onClick(suggestion) }
+                
+                // Apply greyed-out styling if no articles available
+                val alpha = if (suggestion.hasArticleInAnyLanguage) 1.0f else 0.5f
+                titleTextView.alpha = alpha
+                descriptionTextView.alpha = alpha
+                thumbnailImageView.alpha = alpha
+                
+                itemView.setOnClickListener { 
+                    if (suggestion.hasArticleInAnyLanguage) {
+                        onClick(suggestion)
+                    } else {
+                        // Show toast for unavailable items
+                        val context = itemView.context
+                        val message = "This item does not yet have an article in ${displayLanguageNames.joinToString(", ")}"
+                        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
 
                 if (suggestion.thumbnailUrl != null) {
                     Glide.with(itemView.context)
