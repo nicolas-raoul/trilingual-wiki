@@ -11,6 +11,8 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -22,6 +24,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -68,6 +71,13 @@ class MainActivity : AppCompatActivity() {
     private var pagesLoaded = 0
 
     private val wikipediaApiService = RetrofitClient.wikipediaApiService
+    
+    // Bookmark functionality
+    private lateinit var bookmarkManager: BookmarkManager
+    private var currentWikidataId: String? = null
+    private var currentArticleTitle: String? = null
+    private var currentArticleDescription: String? = null
+    private var currentThumbnailUrl: String? = null
 
     companion object {
         private const val TAG = "MainActivity"
@@ -93,6 +103,9 @@ class MainActivity : AppCompatActivity() {
 
         suggestionsRecyclerView = findViewById(R.id.search_suggestions_recycler_view)
 
+        // Initialize bookmark manager
+        bookmarkManager = BookmarkManager(this)
+
         webViewMap = mapOf(
             displayLanguages[0] to webViewEN,
             displayLanguages[1] to webViewFR,
@@ -113,6 +126,9 @@ class MainActivity : AppCompatActivity() {
         webViewMap.forEach { (lang, webView) -> setupWebView(webView, lang) }
 
         setupSuggestions()
+
+        // Handle intent from bookmarks
+        handleBookmarkIntent()
 
         if (savedInstanceState != null) {
             Log.d(TAG, "onCreate: Restoring instance state.")
@@ -170,6 +186,69 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        val bookmarkItem = menu?.findItem(R.id.action_bookmark)
+        
+        // Update bookmark icon based on current article's bookmark status
+        if (currentWikidataId != null && bookmarkManager.isBookmarked(currentWikidataId!!)) {
+            bookmarkItem?.setIcon(R.drawable.ic_bookmark_filled)
+            bookmarkItem?.setTitle(getString(R.string.remove_bookmark))
+        } else {
+            bookmarkItem?.setIcon(R.drawable.ic_bookmark_border)
+            bookmarkItem?.setTitle(getString(R.string.bookmark_this_article))
+        }
+        
+        return super.onPrepareOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_bookmark -> {
+                toggleBookmark()
+                true
+            }
+            R.id.action_view_bookmarks -> {
+                val intent = Intent(this, BookmarksActivity::class.java)
+                startActivity(intent)
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun toggleBookmark() {
+        val wikidataId = currentWikidataId
+        val title = currentArticleTitle
+        val description = currentArticleDescription ?: ""
+        
+        if (wikidataId == null || title == null) {
+            Toast.makeText(this, "No article to bookmark", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (bookmarkManager.isBookmarked(wikidataId)) {
+            bookmarkManager.removeBookmark(wikidataId)
+            Toast.makeText(this, getString(R.string.article_removed_from_bookmarks), Toast.LENGTH_SHORT).show()
+        } else {
+            val bookmark = Bookmark(
+                wikidataId = wikidataId,
+                title = title,
+                description = description,
+                thumbnailUrl = currentThumbnailUrl
+            )
+            bookmarkManager.addBookmark(bookmark)
+            Toast.makeText(this, getString(R.string.article_bookmarked), Toast.LENGTH_SHORT).show()
+        }
+        
+        // Update menu to reflect new bookmark status
+        invalidateOptionsMenu()
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
     }
@@ -180,6 +259,26 @@ class MainActivity : AppCompatActivity() {
             val bundle = Bundle()
             webView.saveState(bundle)
             outState.putBundle("webView$key", bundle)
+        }
+    }
+
+    private fun handleBookmarkIntent() {
+        val wikidataId = intent.getStringExtra("wikidata_id")
+        val title = intent.getStringExtra("title")
+        
+        if (wikidataId != null && title != null) {
+            lifecycleScope.launch {
+                val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+                if (claimsResponse.isSuccessful) {
+                    val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                    val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                    if (sitelinks != null) {
+                        programmaticTextChange = true
+                        searchBar.setText(title)
+                        performFullSearch(title, sitelinks)
+                    }
+                }
+            }
         }
     }
 
@@ -254,6 +353,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun performSearchFromSuggestion(suggestion: SearchSuggestion) {
+        // Set current article info for bookmarking
+        currentWikidataId = suggestion.id
+        currentArticleTitle = suggestion.label
+        currentArticleDescription = suggestion.description
+        currentThumbnailUrl = suggestion.thumbnailUrl
+        
         lifecycleScope.launch {
             val claimsResponse = wikipediaApiService.getEntityClaims(ids = suggestion.id)
             if (claimsResponse.isSuccessful) {
@@ -326,9 +431,16 @@ class MainActivity : AppCompatActivity() {
                     lifecycleScope.launch {
                         val wikidataId = getWikidataIdForTitle(webViewIdentifier, articleTitle)
                         if (wikidataId != null) {
+                            currentWikidataId = wikidataId
+                            currentArticleTitle = articleTitle
+                            // Try to get description and thumbnail from Wikidata
                             val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
                             if (claimsResponse.isSuccessful) {
                                 val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                                currentArticleDescription = entity?.descriptions?.get("en")?.value
+                                val imageName = (entity?.claims?.get("P18")?.firstOrNull()?.mainsnak?.datavalue?.value as? String)?.replace(" ", "_")
+                                currentThumbnailUrl = if (imageName != null) "https://commons.wikimedia.org/w/thumb.php?f=$imageName&w=100" else null
+                                
                                 val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
                                 if (sitelinks != null) {
                                     performFullSearch(articleTitle, sitelinks)
@@ -438,6 +550,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun performFullSearch(searchTerm: String, sitelinks: Map<String, String>? = null) {
         Log.d(TAG, "performFullSearch: Starting a new search for '$searchTerm'.")
+        
+        // Clear current article info when starting new search
+        if (sitelinks == null) {
+            currentWikidataId = null
+            currentArticleTitle = null
+            currentArticleDescription = null
+            currentThumbnailUrl = null
+        }
+        
         lifecycleScope.launch {
             isProgrammaticLoad = true
             pagesToLoad = 0
@@ -504,6 +625,9 @@ class MainActivity : AppCompatActivity() {
                 isProgrammaticLoad = false
                 checkAllWebViewsLoaded()
             }
+            
+            // Update options menu to reflect bookmark status
+            invalidateOptionsMenu()
         }
     }
 }

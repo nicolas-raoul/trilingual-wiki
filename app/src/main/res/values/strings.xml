@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Rosette</string>
+    <string name="bookmark_this_article">Bookmark this article</string>
+    <string name="view_bookmarks">View bookmarks</string>
+    <string name="article_bookmarked">Article bookmarked</string>
+    <string name="article_removed_from_bookmarks">Article removed from bookmarks</string>
+    <string name="no_bookmarks">No bookmarks yet</string>
+    <string name="bookmarks">Bookmarks</string>
+    <string name="remove_bookmark">Remove bookmark</string>
 </resources>
