@@ -75,6 +75,8 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        private const val PREF_LAST_VISITED_ARTICLE = "last_visited_article"
+        private const val PREF_LAST_VISITED_ARTICLES_PREFIX = "last_visited_article_"
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -132,12 +134,29 @@ class MainActivity : AppCompatActivity() {
                 savedInstanceState.getBundle("webView$key")?.let { webView.restoreState(it) }
             }
         } else {
-            Log.d(TAG, "onCreate: No saved instance state, loading initial URLs.")
-            isProgrammaticLoad = true
-            pagesToLoad = displayLanguages.size
-            webViewMap.forEach { (lang, webView) ->
-                Log.d(TAG, "onCreate: Loading initial URL for $lang WebView.")
-                webView.loadUrl(getWikipediaBaseUrl(lang))
+            Log.d(TAG, "onCreate: No saved instance state, checking for last visited article.")
+            val lastVisited = loadLastVisitedArticle()
+            if (lastVisited != null) {
+                val (articleTitle, languageUrls) = lastVisited
+                Log.d(TAG, "onCreate: Loading last visited article: $articleTitle")
+                programmaticTextChange = true
+                searchBar.setText(articleTitle)
+                isProgrammaticLoad = true
+                pagesToLoad = displayLanguages.size
+                displayLanguages.forEach { lang ->
+                    val webView = webViewMap[lang]
+                    val url = languageUrls[lang]
+                    if (url != null) {
+                        Log.d(TAG, "onCreate: Loading saved URL for $lang: $url")
+                        webView?.loadUrl(url)
+                    } else {
+                        Log.d(TAG, "onCreate: Loading base URL for $lang WebView.")
+                        webView?.loadUrl(getWikipediaBaseUrl(lang))
+                    }
+                }
+            } else {
+                Log.d(TAG, "onCreate: No last visited article, loading initial URLs.")
+                loadHomePages()
             }
         }
 
@@ -189,6 +208,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_home -> {
+                loadHomePages()
+                true
+            }
             R.id.action_settings -> {
                 showLanguageSettingsDialog()
                 true
@@ -220,12 +243,17 @@ class MainActivity : AppCompatActivity() {
             displayLanguages[2] to webViewJA
         )
         
-        // Reload initial pages with new languages
-        isProgrammaticLoad = true
-        pagesToLoad = displayLanguages.size
-        webViewMap.forEach { (lang, webView) ->
-            Log.d(TAG, "recreateWebViews: Loading initial URL for $lang WebView.")
-            webView.loadUrl(getWikipediaBaseUrl(lang))
+        // Check if we have a last visited article and restore it, otherwise load home pages
+        val lastVisited = loadLastVisitedArticle()
+        if (lastVisited != null) {
+            val (articleTitle, _) = lastVisited
+            Log.d(TAG, "recreateWebViews: Reloading last visited article: $articleTitle")
+            programmaticTextChange = true
+            searchBar.setText(articleTitle)
+            performFullSearch(articleTitle)
+        } else {
+            // Load initial pages with new languages
+            loadHomePages()
         }
     }
 
@@ -466,6 +494,58 @@ class MainActivity : AppCompatActivity() {
         currentFocus?.let { inputMethodManager.hideSoftInputFromWindow(it.windowToken, 0) }
     }
 
+    private fun saveLastVisitedArticle(articleTitle: String, languageUrls: Map<String, String?>) {
+        val prefs = getSharedPreferences(PREF_LAST_VISITED_ARTICLE, Context.MODE_PRIVATE)
+        with(prefs.edit()) {
+            putString("article_title", articleTitle)
+            displayLanguages.forEach { lang ->
+                putString("${PREF_LAST_VISITED_ARTICLES_PREFIX}${lang}", languageUrls[lang])
+            }
+            apply()
+        }
+        Log.d(TAG, "Saved last visited article: $articleTitle")
+    }
+
+    private fun loadLastVisitedArticle(): Pair<String?, Map<String, String?>>? {
+        val prefs = getSharedPreferences(PREF_LAST_VISITED_ARTICLE, Context.MODE_PRIVATE)
+        val articleTitle = prefs.getString("article_title", null)
+        if (articleTitle != null) {
+            val languageUrls = mutableMapOf<String, String?>()
+            displayLanguages.forEach { lang ->
+                languageUrls[lang] = prefs.getString("${PREF_LAST_VISITED_ARTICLES_PREFIX}${lang}", null)
+            }
+            Log.d(TAG, "Loaded last visited article: $articleTitle")
+            return Pair(articleTitle, languageUrls)
+        }
+        return null
+    }
+
+    private fun clearLastVisitedArticle() {
+        val prefs = getSharedPreferences(PREF_LAST_VISITED_ARTICLE, Context.MODE_PRIVATE)
+        with(prefs.edit()) {
+            clear()
+            apply()
+        }
+        Log.d(TAG, "Cleared last visited article")
+    }
+
+    private fun loadHomePages() {
+        Log.d(TAG, "loadHomePages: Loading base Wikipedia URLs for all languages.")
+        isProgrammaticLoad = true
+        pagesToLoad = displayLanguages.size
+        pagesLoaded = 0
+        clearLastVisitedArticle()
+        searchBar.setText("")
+        
+        progressBarMap.values.forEach { it.visibility = View.VISIBLE }
+        webViewMap.values.forEach { it.visibility = View.INVISIBLE }
+        
+        webViewMap.forEach { (lang, webView) ->
+            Log.d(TAG, "loadHomePages: Loading base URL for $lang WebView.")
+            webView.loadUrl(getWikipediaBaseUrl(lang))
+        }
+    }
+
     private suspend fun getFinalArticleTitle(lang: String, searchTerm: String): String? {
         val baseUrlForApi = "https://$lang.wikipedia.org/w/api.php"
         val formattedSearchTerm = searchTerm.replace(" ", "_")
@@ -505,6 +585,10 @@ class MainActivity : AppCompatActivity() {
             progressBarMap.values.forEach { it.visibility = View.VISIBLE }
             webViewMap.values.forEach { it.visibility = View.INVISIBLE }
 
+            var sourceLangFound: String? = null
+            var finalTitleFromSource: String? = null
+            var langLinksMap: Map<String, String>? = null
+
             if (sitelinks != null) {
                 updateStatus("Loading articles for \"$searchTerm\"...")
                 displayLanguages.forEach { lang ->
@@ -522,9 +606,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } else {
-                var sourceLangFound: String? = null
-                var finalTitleFromSource: String? = null
-
                 for (lang in searchPriorityLanguages) {
                     finalTitleFromSource = getFinalArticleTitle(lang, searchTerm)
                     if (finalTitleFromSource != null) {
@@ -541,7 +622,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 updateStatus("Found \"$finalTitleFromSource\" on $sourceLangFound.wikipedia.org. Fetching translations...")
-                val langLinksMap = getLangLinksForTitle(sourceLangFound, finalTitleFromSource)
+                langLinksMap = getLangLinksForTitle(sourceLangFound, finalTitleFromSource)
 
                 updateStatus("Loading articles...")
                 displayLanguages.forEach { lang ->
@@ -557,6 +638,32 @@ class MainActivity : AppCompatActivity() {
                         webView?.loadUrl(getWikipediaBaseUrl(lang) + "/w/index.php?title=Special:Search&search=${finalTitleFromSource.replace(" ", "_")}")
                     }
                 }
+            }
+
+            // Save the last visited article data if we successfully loaded articles
+            if (pagesToLoad > 0) {
+                val languageUrls = mutableMapOf<String, String?>()
+                if (sitelinks != null) {
+                    displayLanguages.forEach { lang ->
+                        val siteKey = "${lang}wiki"
+                        val title = sitelinks[siteKey]
+                        languageUrls[lang] = if (title != null) {
+                            getWikipediaPageUrl(lang, title)
+                        } else {
+                            getWikipediaBaseUrl(lang) + "/w/index.php?title=Special:Search&search=${searchTerm.replace(" ", "_")}"
+                        }
+                    }
+                } else if (sourceLangFound != null && finalTitleFromSource != null) {
+                    displayLanguages.forEach { lang ->
+                        val title = if (lang == sourceLangFound) finalTitleFromSource else langLinksMap?.get(lang)
+                        languageUrls[lang] = if (title != null) {
+                            getWikipediaPageUrl(lang, title)
+                        } else {
+                            getWikipediaBaseUrl(lang) + "/w/index.php?title=Special:Search&search=${finalTitleFromSource.replace(" ", "_")}"
+                        }
+                    }
+                }
+                saveLastVisitedArticle(searchTerm, languageUrls)
             }
 
             if(pagesToLoad == 0) {
