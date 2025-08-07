@@ -231,6 +231,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        Log.d(TAG, "onConfigurationChanged: Configuration changed, hiding search suggestions.")
+        
+        // Hide search suggestions dropdown when configuration changes (e.g., screen unfolding/folding)
+        if (suggestionsRecyclerView.visibility == View.VISIBLE) {
+            suggestionsRecyclerView.visibility = View.GONE
+            hideKeyboard()
+            searchBar.clearFocus()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
