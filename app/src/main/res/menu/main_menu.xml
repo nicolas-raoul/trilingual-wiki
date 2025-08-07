@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/action_bookmark_article"
+        android:title="@string/bookmark_this_article"
+        android:icon="@android:drawable/btn_star_big_off"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_see_bookmarks"
+        android:title="@string/see_bookmarks"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:showAsAction="never" />
+    <item
         android:id="@+id/action_settings"
         android:title="@string/language_settings"
         android:icon="@android:drawable/ic_menu_preferences"
