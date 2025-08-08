@@ -534,11 +534,14 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (sourceLangFound == null || finalTitleFromSource == null) {
-                    updateStatus("Article \"$searchTerm\" not found.")
-                    progressBarMap.values.forEach { it.visibility = View.GONE }
-                    isProgrammaticLoad = false
-                    return@launch
-                }
+                    updateStatus("Article \"$searchTerm\" not found. Loading search pages...")
+                    displayLanguages.forEach { lang ->
+                        val webView = webViewMap[lang]
+                        pagesToLoad++
+                        Log.d(TAG, "performFullSearch: No article found, loading search page for $lang.")
+                        webView?.loadUrl(getWikipediaBaseUrl(lang) + "/w/index.php?title=Special:Search&search=${searchTerm.replace(" ", "_")}")
+                    }
+                } else {
 
                 updateStatus("Found \"$finalTitleFromSource\" on $sourceLangFound.wikipedia.org. Fetching translations...")
                 val langLinksMap = getLangLinksForTitle(sourceLangFound, finalTitleFromSource)
@@ -556,6 +559,7 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "performFullSearch: No translation for $lang, loading search page.")
                         webView?.loadUrl(getWikipediaBaseUrl(lang) + "/w/index.php?title=Special:Search&search=${finalTitleFromSource.replace(" ", "_")}")
                     }
+                }
                 }
             }
 
