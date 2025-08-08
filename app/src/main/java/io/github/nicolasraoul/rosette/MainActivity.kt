@@ -24,6 +24,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -47,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var languageManager: LanguageManager
     private lateinit var displayLanguages: Array<String>
     private lateinit var searchPriorityLanguages: Array<String>
+    private lateinit var bookmarkManager: BookmarkManager
 
     private lateinit var mainLayout: ConstraintLayout
     private lateinit var webViewEN: WebView
@@ -66,6 +68,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var suggestionsAdapter: SearchSuggestionsAdapter
     private var searchJob: Job? = null
     private var programmaticTextChange = false
+    
+    // Current article tracking for bookmarking
+    private var currentArticleTitle: String? = null
+    private var currentArticleLanguage: String? = null
+    private var currentWikidataId: String? = null
 
     private var isProgrammaticLoad = false
     private var pagesToLoad = 0
@@ -89,6 +96,7 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize language manager and load configured languages
         languageManager = LanguageManager(this)
+        bookmarkManager = BookmarkManager(this)
         loadConfiguredLanguages()
 
         mainLayout = findViewById(R.id.main)
@@ -193,6 +201,14 @@ class MainActivity : AppCompatActivity() {
                 showLanguageSettingsDialog()
                 true
             }
+            R.id.action_bookmark_article -> {
+                bookmarkCurrentArticle()
+                true
+            }
+            R.id.action_see_bookmarks -> {
+                showBookmarksDialog()
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -210,6 +226,48 @@ class MainActivity : AppCompatActivity() {
             recreateWebViews()
         }
         dialog.show(supportFragmentManager, "LanguageSettingsDialog")
+    }
+    
+    private fun bookmarkCurrentArticle() {
+        val title = currentArticleTitle
+        val language = currentArticleLanguage
+        
+        if (title.isNullOrEmpty() || language.isNullOrEmpty()) {
+            Toast.makeText(this, R.string.no_current_article, Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Generate a unique ID for the bookmark
+        val bookmarkId = currentWikidataId ?: "${language}_${title.hashCode()}"
+        
+        val bookmark = Bookmark(
+            id = bookmarkId,
+            title = title,
+            language = language,
+            wikidataId = currentWikidataId
+        )
+        
+        val success = bookmarkManager.addBookmark(bookmark)
+        if (success) {
+            Toast.makeText(this, R.string.bookmark_added, Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, R.string.bookmark_already_exists, Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun showBookmarksDialog() {
+        val dialog = BookmarksDialog.newInstance { bookmark ->
+            // When user clicks a bookmark, search for that article
+            currentArticleTitle = bookmark.title
+            currentArticleLanguage = bookmark.language
+            currentWikidataId = bookmark.wikidataId
+            
+            programmaticTextChange = true
+            searchBar.setText(bookmark.title)
+            performFullSearch(bookmark.title)
+        }
+        dialog.show(supportFragmentManager, "BookmarksDialog")
+    }
     }
 
     private fun recreateWebViews() {
@@ -497,6 +555,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun performFullSearch(searchTerm: String, sitelinks: Map<String, String>? = null) {
         Log.d(TAG, "performFullSearch: Starting a new search for '$searchTerm'.")
+        
+        // Update current article info for bookmarking
+        currentArticleTitle = searchTerm
+        
         lifecycleScope.launch {
             isProgrammaticLoad = true
             pagesToLoad = 0
@@ -537,8 +599,18 @@ class MainActivity : AppCompatActivity() {
                     updateStatus("Article \"$searchTerm\" not found.")
                     progressBarMap.values.forEach { it.visibility = View.GONE }
                     isProgrammaticLoad = false
+                    currentArticleTitle = null
+                    currentArticleLanguage = null
+                    currentWikidataId = null
                     return@launch
                 }
+
+                // Update current article info
+                currentArticleTitle = finalTitleFromSource
+                currentArticleLanguage = sourceLangFound
+                
+                // Try to get Wikidata ID for cross-language bookmarking
+                currentWikidataId = getWikidataIdForTitle(sourceLangFound, finalTitleFromSource)
 
                 updateStatus("Found \"$finalTitleFromSource\" on $sourceLangFound.wikipedia.org. Fetching translations...")
                 val langLinksMap = getLangLinksForTitle(sourceLangFound, finalTitleFromSource)

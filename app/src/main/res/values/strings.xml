@@ -17,4 +17,18 @@
     <string name="language_already_selected">Language already selected</string>
     <string name="select_exact_languages">Please select exactly %d languages</string>
     <string name="languages_saved">Languages saved successfully</string>
+    
+    <!-- Bookmark related strings -->
+    <string name="bookmark_this_article">Bookmark this article</string>
+    <string name="see_bookmarks">See bookmarks</string>
+    <string name="bookmarks">Bookmarks</string>
+    <string name="no_bookmarks">No bookmarks yet</string>
+    <string name="no_bookmarks_message">You haven\'t bookmarked any articles yet. Use the menu to bookmark articles you\'d like to save for later.</string>
+    <string name="bookmark_added">Bookmark added</string>
+    <string name="bookmark_removed">Bookmark removed</string>
+    <string name="bookmark_already_exists">Article already bookmarked</string>
+    <string name="bookmark_error">Error managing bookmark</string>
+    <string name="no_current_article">No current article to bookmark</string>
+    <string name="remove_bookmark">Remove bookmark</string>
+    <string name="close">Close</string>
 </resources>
