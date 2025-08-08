@@ -2,9 +2,17 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
       xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_bookmark"
+        android:title="@string/action_bookmark"
+        android:icon="@android:drawable/ic_menu_bookmark"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_bookmarks"
+        android:title="@string/action_bookmarks"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_settings"
         android:title="@string/language_settings"
         android:icon="@android:drawable/ic_menu_preferences"
-        android:showAsAction="always"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
 </menu>

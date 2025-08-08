@@ -109,7 +109,13 @@ data class EntityClaimsResponse(
 data class EntityClaim(
     val id: String,
     val claims: Map<String, List<Claim>>?,
-    val sitelinks: Map<String, SiteLink>?
+    val sitelinks: Map<String, SiteLink>?,
+    val labels: Map<String, Label>?
+)
+
+data class Label(
+    val language: String,
+    val value: String
 )
 
 data class SiteLink(

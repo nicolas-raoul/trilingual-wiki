@@ -22,10 +22,14 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.ImageView
+import android.app.Activity
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import io.github.nicolasraoul.rosette.bookmarks.BookmarksActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Group
@@ -70,11 +74,39 @@ class MainActivity : AppCompatActivity() {
     private var isProgrammaticLoad = false
     private var pagesToLoad = 0
     private var pagesLoaded = 0
+    private var currentWikidataId: String? = null
 
     private val wikipediaApiService = RetrofitClient.wikipediaApiService
+    private val bookmarkDao by lazy {
+        (application as RosetteApplication).database.bookmarkDao()
+    }
 
     companion object {
         private const val TAG = "MainActivity"
+    }
+
+    private val openBookmarksLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val wikidataId = result.data?.getStringExtra(BookmarksActivity.EXTRA_WIKIDATA_ID)
+            if (wikidataId != null) {
+                Log.d(TAG, "Selected bookmark with Wikidata ID: $wikidataId")
+                lifecycleScope.launch {
+                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+                    if (claimsResponse.isSuccessful) {
+                        val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                        val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                        val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
+                        if (sitelinks != null) {
+                            performFullSearch(label, sitelinks, wikidataId)
+                        } else {
+                            performFullSearch(label, wikidataId = wikidataId)
+                        }
+                    } else {
+                        Toast.makeText(this@MainActivity, "Failed to load bookmark", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -189,6 +221,26 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_bookmark -> {
+                Log.d(TAG, "Bookmark action clicked")
+                currentWikidataId?.let { id ->
+                    lifecycleScope.launch {
+                        val bookmark = io.github.nicolasraoul.rosette.data.db.Bookmark(
+                            wikidataId = id,
+                            timestamp = System.currentTimeMillis()
+                        )
+                        bookmarkDao.insert(bookmark)
+                        Toast.makeText(this@MainActivity, "Bookmark saved", Toast.LENGTH_SHORT).show()
+                    }
+                } ?: Toast.makeText(this, "Cannot save bookmark: article not identified", Toast.LENGTH_SHORT).show()
+                true
+            }
+            R.id.action_bookmarks -> {
+                Log.d(TAG, "Bookmarks action clicked")
+                val intent = Intent(this, BookmarksActivity::class.java)
+                openBookmarksLauncher.launch(intent)
+                true
+            }
             R.id.action_settings -> {
                 showLanguageSettingsDialog()
                 true
@@ -320,7 +372,7 @@ class MainActivity : AppCompatActivity() {
                 val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
                 if (sitelinks != null) {
                     val primaryTitle = sitelinks["enwiki"] ?: sitelinks.values.firstOrNull() ?: suggestion.label
-                    performFullSearch(primaryTitle, sitelinks)
+                    performFullSearch(primaryTitle, sitelinks, suggestion.id)
                 } else {
                     performFullSearch(suggestion.label)
                 }
@@ -390,7 +442,7 @@ class MainActivity : AppCompatActivity() {
                                 val entity = claimsResponse.body()?.entities?.get(wikidataId)
                                 val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
                                 if (sitelinks != null) {
-                                    performFullSearch(articleTitle, sitelinks)
+                                    performFullSearch(articleTitle, sitelinks, wikidataId)
                                 } else {
                                     performFullSearch(articleTitle)
                                 }
@@ -495,8 +547,11 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
-    private fun performFullSearch(searchTerm: String, sitelinks: Map<String, String>? = null) {
-        Log.d(TAG, "performFullSearch: Starting a new search for '$searchTerm'.")
+    private fun performFullSearch(searchTerm: String, sitelinks: Map<String, String>? = null, wikidataId: String? = null) {
+        Log.d(TAG, "performFullSearch: Starting a new search for '$searchTerm'. Wikidata ID: $wikidataId")
+        this.currentWikidataId = wikidataId
+        // TODO: Refactor the 'else' block below to fetch the wikidataId for plain searches to allow bookmarking.
+
         lifecycleScope.launch {
             isProgrammaticLoad = true
             pagesToLoad = 0
