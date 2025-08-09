@@ -7,4 +7,10 @@
         android:icon="@android:drawable/ic_menu_preferences"
         android:showAsAction="always"
         app:showAsAction="always" />
+    <item
+        android:id="@+id/action_random"
+        android:title="@string/random_article"
+        android:icon="@android:drawable/ic_menu_sort_by_size"
+        android:showAsAction="always"
+        app:showAsAction="always" />
 </menu>

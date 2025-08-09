@@ -193,6 +193,10 @@ class MainActivity : AppCompatActivity() {
                 showLanguageSettingsDialog()
                 true
             }
+            R.id.action_random -> {
+                performRandomArticleSearch()
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -563,6 +567,80 @@ class MainActivity : AppCompatActivity() {
                 isProgrammaticLoad = false
                 checkAllWebViewsLoaded()
             }
+        }
+    }
+
+    private fun performRandomArticleSearch() {
+        Log.d(TAG, "performRandomArticleSearch: Starting random article search.")
+        lifecycleScope.launch {
+            hideKeyboard()
+            suggestionsRecyclerView.visibility = View.GONE
+            searchBar.clearFocus()
+            
+            updateStatus(getString(R.string.finding_random_article))
+            
+            var attempts = 0
+            val maxAttempts = 50 // Try up to 50 random items
+            
+            while (attempts < maxAttempts) {
+                attempts++
+                Log.d(TAG, "performRandomArticleSearch: Attempt $attempts")
+                
+                try {
+                    // Generate random Q-IDs to try (Wikidata has millions of items)
+                    val randomQIds = generateRandomQIds(5) // Try 5 at a time
+                    val qIdsString = randomQIds.joinToString("|")
+                    
+                    Log.d(TAG, "performRandomArticleSearch: Trying Q-IDs: $qIdsString")
+                    
+                    // Get entity data for these Q-IDs
+                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = qIdsString)
+                    
+                    if (claimsResponse.isSuccessful) {
+                        val entities = claimsResponse.body()?.entities
+                        
+                        if (!entities.isNullOrEmpty()) {
+                            for ((qId, entity) in entities) {
+                                // Skip if this entity was returned as missing
+                                if (entity.sitelinks.isNullOrEmpty()) continue
+                                
+                                val sitelinks = entity.sitelinks.mapValues { it.value.title }
+                                
+                                // Check if we have articles in all 3 selected languages
+                                val requiredSiteKeys = displayLanguages.map { "${it}wiki" }
+                                val availableSiteKeys = sitelinks.keys
+                                
+                                if (requiredSiteKeys.all { it in availableSiteKeys }) {
+                                    // Found a suitable article!
+                                    Log.d(TAG, "performRandomArticleSearch: Found suitable article: $qId")
+                                    val primaryTitle = sitelinks["enwiki"] ?: sitelinks[requiredSiteKeys.first()] ?: sitelinks.values.first()
+                                    programmaticTextChange = true
+                                    searchBar.setText(primaryTitle)
+                                    performFullSearch(primaryTitle, sitelinks)
+                                    return@launch
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.e(TAG, "Error during random article search attempt $attempts", e)
+                }
+            }
+            
+            // If we get here, we didn't find a suitable article
+            Log.d(TAG, "performRandomArticleSearch: No suitable article found after $maxAttempts attempts")
+            updateStatus(getString(R.string.no_random_article_found))
+        }
+    }
+    
+    private fun generateRandomQIds(count: Int): List<String> {
+        // Generate random Q-IDs within a reasonable range
+        // Wikidata has items up to around Q100M+, but most active items are in lower ranges
+        // We'll focus on Q1 to Q10M for better hit rate
+        val random = kotlin.random.Random
+        return (1..count).map { 
+            "Q${random.nextInt(1, 10_000_000)}"
         }
     }
 }
