@@ -17,4 +17,9 @@
     <string name="language_already_selected">Language already selected</string>
     <string name="select_exact_languages">Please select exactly %d languages</string>
     <string name="languages_saved">Languages saved successfully</string>
+    
+    <!-- Random Article -->
+    <string name="random_article">Random Article</string>
+    <string name="finding_random_article">Finding random article...</string>
+    <string name="no_random_article_found">No suitable random article found. Please try again.</string>
 </resources>
