@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class BookmarksViewModel(
-    bookmarkDao: BookmarkDao,
+    private val bookmarkDao: BookmarkDao,
     private val wikipediaApiService: WikipediaApiService,
     private val languageManager: LanguageManager
 ) : ViewModel() {

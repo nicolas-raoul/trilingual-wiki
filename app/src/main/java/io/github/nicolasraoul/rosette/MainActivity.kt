@@ -173,7 +173,7 @@ class MainActivity : AppCompatActivity() {
             } else {
                 bookmarkDao.getBookmark(id).map { it != null }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        }.stateIn(lifecycleScope, SharingStarted.WhileSubscribed(5000), false)
 
         lifecycleScope.launch {
             isBookmarked.collect { bookmarked ->
