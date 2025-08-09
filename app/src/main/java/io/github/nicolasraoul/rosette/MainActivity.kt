@@ -189,6 +189,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_home -> {
+                navigateToWikipediaHome()
+                true
+            }
             R.id.action_settings -> {
                 showLanguageSettingsDialog()
                 true
@@ -225,6 +229,33 @@ class MainActivity : AppCompatActivity() {
         pagesToLoad = displayLanguages.size
         webViewMap.forEach { (lang, webView) ->
             Log.d(TAG, "recreateWebViews: Loading initial URL for $lang WebView.")
+            webView.loadUrl(getWikipediaBaseUrl(lang))
+        }
+    }
+
+    private fun navigateToWikipediaHome() {
+        Log.d(TAG, "navigateToWikipediaHome: Navigating to Wikipedia home page.")
+        
+        // Clear search bar
+        programmaticTextChange = true
+        searchBar.setText("")
+        searchBar.clearFocus()
+        hideKeyboard()
+        suggestionsRecyclerView.visibility = View.GONE
+        
+        // Load Wikipedia home page in all three languages
+        isProgrammaticLoad = true
+        pagesToLoad = displayLanguages.size
+        pagesLoaded = 0
+        
+        progressBarMap.values.forEach { it.visibility = View.VISIBLE }
+        webViewMap.values.forEach { it.visibility = View.INVISIBLE }
+        
+        updateStatus("Loading Wikipedia home pages...")
+        
+        // Load the main Wikipedia page for each language
+        webViewMap.forEach { (lang, webView) ->
+            Log.d(TAG, "navigateToWikipediaHome: Loading home page for $lang WebView.")
             webView.loadUrl(getWikipediaBaseUrl(lang))
         }
     }

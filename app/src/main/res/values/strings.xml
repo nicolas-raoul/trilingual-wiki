@@ -17,4 +17,8 @@
     <string name="language_already_selected">Language already selected</string>
     <string name="select_exact_languages">Please select exactly %d languages</string>
     <string name="languages_saved">Languages saved successfully</string>
+    
+    <!-- Home button -->
+    <string name="home">Home</string>
+    <string name="wikipedia_home">Wikipedia Home</string>
 </resources>
