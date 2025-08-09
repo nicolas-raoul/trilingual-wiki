@@ -580,48 +580,77 @@ class MainActivity : AppCompatActivity() {
             updateStatus(getString(R.string.finding_random_article))
             
             var attempts = 0
-            val maxAttempts = 50 // Try up to 50 random items
+            val maxAttempts = 10 // Fewer attempts since we're trying multiple languages per attempt
             
             while (attempts < maxAttempts) {
                 attempts++
                 Log.d(TAG, "performRandomArticleSearch: Attempt $attempts")
                 
                 try {
-                    // Generate random Q-IDs to try (Wikidata has millions of items)
-                    val randomQIds = generateRandomQIds(5) // Try 5 at a time
-                    val qIdsString = randomQIds.joinToString("|")
+                    // Try getting random pages from multiple languages in parallel for better efficiency
+                    val languages = searchPriorityLanguages.take(2) // Try 2 languages per attempt
+                    val randomPageCandidates = mutableListOf<Pair<String, String>>() // (language, title)
                     
-                    Log.d(TAG, "performRandomArticleSearch: Trying Q-IDs: $qIdsString")
-                    
-                    // Get entity data for these Q-IDs
-                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = qIdsString)
-                    
-                    if (claimsResponse.isSuccessful) {
-                        val entities = claimsResponse.body()?.entities
+                    for (lang in languages) {
+                        val baseUrlForApi = "https://$lang.wikipedia.org/w/api.php"
                         
-                        if (!entities.isNullOrEmpty()) {
-                            for ((qId, entity) in entities) {
-                                // Skip if this entity was returned as missing
-                                if (entity.sitelinks.isNullOrEmpty()) continue
-                                
-                                val sitelinks = entity.sitelinks.mapValues { it.value.title }
-                                
-                                // Check if we have articles in all 3 selected languages
-                                val requiredSiteKeys = displayLanguages.map { "${it}wiki" }
-                                val availableSiteKeys = sitelinks.keys
-                                
-                                if (requiredSiteKeys.all { it in availableSiteKeys }) {
-                                    // Found a suitable article!
-                                    Log.d(TAG, "performRandomArticleSearch: Found suitable article: $qId")
-                                    val primaryTitle = sitelinks["enwiki"] ?: sitelinks[requiredSiteKeys.first()] ?: sitelinks.values.first()
-                                    programmaticTextChange = true
-                                    searchBar.setText(primaryTitle)
-                                    performFullSearch(primaryTitle, sitelinks)
-                                    return@launch
+                        try {
+                            val randomResponse = wikipediaApiService.getRandomWikipediaPages(
+                                baseUrl = baseUrlForApi, 
+                                rnlimit = 5 // Get 5 random pages per language
+                            )
+                            
+                            if (randomResponse.isSuccessful) {
+                                val randomPages = randomResponse.body()?.query?.random
+                                randomPages?.forEach { page ->
+                                    randomPageCandidates.add(lang to page.title)
                                 }
                             }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to get random pages from $lang", e)
                         }
                     }
+                    
+                    // Now check each candidate for suitability
+                    for ((sourceLang, title) in randomPageCandidates) {
+                        Log.d(TAG, "performRandomArticleSearch: Checking page '$title' from $sourceLang")
+                        
+                        // Get the Wikidata ID for this page
+                        val wikidataId = getWikidataIdForTitle(sourceLang, title)
+                        
+                        if (wikidataId != null) {
+                            Log.d(TAG, "performRandomArticleSearch: Found Wikidata ID: $wikidataId")
+                            
+                            // Get entity data for this Wikidata ID
+                            val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+                            
+                            if (claimsResponse.isSuccessful) {
+                                val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                                val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                                
+                                if (!sitelinks.isNullOrEmpty()) {
+                                    // Check if we have articles in all 3 selected languages
+                                    val requiredSiteKeys = displayLanguages.map { "${it}wiki" }
+                                    val availableSiteKeys = sitelinks.keys
+                                    
+                                    if (requiredSiteKeys.all { it in availableSiteKeys }) {
+                                        // Found a suitable article!
+                                        Log.d(TAG, "performRandomArticleSearch: Found suitable article: $title ($wikidataId)")
+                                        val primaryTitle = sitelinks["enwiki"] ?: sitelinks[requiredSiteKeys.first()] ?: title
+                                        programmaticTextChange = true
+                                        searchBar.setText(primaryTitle)
+                                        performFullSearch(primaryTitle, sitelinks)
+                                        return@launch
+                                    } else {
+                                        Log.d(TAG, "performRandomArticleSearch: Article '$title' missing languages. Available: $availableSiteKeys, Required: $requiredSiteKeys")
+                                    }
+                                }
+                            }
+                        } else {
+                            Log.d(TAG, "performRandomArticleSearch: No Wikidata ID found for '$title'")
+                        }
+                    }
+                    
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Error during random article search attempt $attempts", e)
@@ -631,16 +660,6 @@ class MainActivity : AppCompatActivity() {
             // If we get here, we didn't find a suitable article
             Log.d(TAG, "performRandomArticleSearch: No suitable article found after $maxAttempts attempts")
             updateStatus(getString(R.string.no_random_article_found))
-        }
-    }
-    
-    private fun generateRandomQIds(count: Int): List<String> {
-        // Generate random Q-IDs within a reasonable range
-        // Wikidata has items up to around Q100M+, but most active items are in lower ranges
-        // We'll focus on Q1 to Q10M for better hit rate
-        val random = kotlin.random.Random
-        return (1..count).map { 
-            "Q${random.nextInt(1, 10_000_000)}"
         }
     }
 }

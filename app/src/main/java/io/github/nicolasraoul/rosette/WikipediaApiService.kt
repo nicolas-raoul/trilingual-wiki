@@ -60,6 +60,16 @@ interface WikipediaApiService {
         @Query("format") format: String = "json",
         @Query("smtype") smtype: String = "language"
     ): Response<SiteMatrixResponse>
+
+    @GET
+    suspend fun getRandomWikipediaPages(
+        @Url baseUrl: String,
+        @Query("action") action: String = "query",
+        @Query("list") list: String = "random",
+        @Query("format") format: String = "json",
+        @Query("rnnamespace") rnnamespace: Int = 0,
+        @Query("rnlimit") rnlimit: Int = 10
+    ): Response<RandomPagesResponse>
 }
 
 // Data classes for standard Wikipedia API responses
@@ -143,4 +153,19 @@ data class SiteMatrixEntry(
     val code: String?,
     val name: String?,
     val localname: String?
+)
+
+// Data classes for random Wikipedia pages response
+data class RandomPagesResponse(
+    val query: RandomPagesQuery?
+)
+
+data class RandomPagesQuery(
+    val random: List<RandomPage>?
+)
+
+data class RandomPage(
+    val id: Int,
+    val title: String,
+    val ns: Int
 )
