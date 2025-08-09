@@ -11,7 +11,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import io.github.nicolasraoul.rosette.R
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 data class BookmarkViewData(
@@ -30,7 +29,6 @@ class BookmarksAdapter(private val onClick: (BookmarkViewData) -> Unit) :
         private val titleTextView1: TextView = itemView.findViewById(R.id.bookmark_title1)
         private val titleTextView2: TextView = itemView.findViewById(R.id.bookmark_title2)
         private val titleTextView3: TextView = itemView.findViewById(R.id.bookmark_title3)
-        private val timestampTextView: TextView = itemView.findViewById(R.id.bookmark_timestamp)
         private var currentBookmark: BookmarkViewData? = null
 
         init {
@@ -64,13 +62,6 @@ class BookmarksAdapter(private val onClick: (BookmarkViewData) -> Unit) :
                     textView.visibility = View.GONE
                 }
             }
-
-            timestampTextView.text = "Saved on ${formatTimestamp(bookmark.timestamp)}"
-        }
-
-        private fun formatTimestamp(timestamp: Long): String {
-            val sdf = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-            return sdf.format(Date(timestamp))
         }
     }
 

@@ -58,19 +58,4 @@
         app:layout_constraintTop_toBottomOf="@id/bookmark_title2"
         tools:text="Title 3" />
 
-    <TextView
-        android:id="@+id/bookmark_timestamp"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        android:textAppearance="?attr/textAppearanceCaption"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/bookmark_image"
-        app:layout_constraintTop_toBottomOf="@id/bookmark_title3"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="1.0"
-        tools:text="Saved on Jan 1, 2024"/>
-
 </androidx.constraintlayout.widget.ConstraintLayout>
