@@ -25,4 +25,7 @@ interface BookmarkDao {
 
     @Query("SELECT * FROM bookmarks ORDER BY timestamp DESC")
     fun getAll(): Flow<List<Bookmark>>
+
+    @Query("SELECT * FROM bookmarks WHERE wikidataId = :wikidataId")
+    fun getBookmark(wikidataId: String): Flow<Bookmark?>
 }

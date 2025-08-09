@@ -1,25 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
     android:padding="16dp"
     android:background="?android:attr/selectableItemBackground">
 
+    <ImageView
+        android:id="@+id/bookmark_image"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:src="@tools:sample/backgrounds/scenic" />
+
     <TextView
-        android:id="@+id/bookmark_title"
-        android:layout_width="match_parent"
+        android:id="@+id/bookmark_title1"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
         android:textAppearance="?attr/textAppearanceListItem"
-        tools:text="Bookmark Title" />
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/bookmark_image"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Title 1" />
+
+    <TextView
+        android:id="@+id/bookmark_title2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:textAppearance="?attr/textAppearanceListItemSecondary"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/bookmark_image"
+        app:layout_constraintTop_toBottomOf="@id/bookmark_title1"
+        tools:text="Title 2" />
+
+    <TextView
+        android:id="@+id/bookmark_title3"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        android:textAppearance="?attr/textAppearanceListItemSecondary"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/bookmark_image"
+        app:layout_constraintTop_toBottomOf="@id/bookmark_title2"
+        tools:text="Title 3" />
 
     <TextView
         android:id="@+id/bookmark_timestamp"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textAppearance="?attr/textAppearanceListItemSecondary"
-        android:layout_marginTop="4dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:textAppearance="?attr/textAppearanceCaption"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/bookmark_image"
+        app:layout_constraintTop_toBottomOf="@id/bookmark_title3"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="1.0"
         tools:text="Saved on Jan 1, 2024"/>
 
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

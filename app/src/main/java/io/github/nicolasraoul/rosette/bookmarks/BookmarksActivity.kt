@@ -6,7 +6,10 @@ import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.snackbar.Snackbar
+import io.github.nicolasraoul.rosette.LanguageManager
 import io.github.nicolasraoul.rosette.RosetteApplication
 import io.github.nicolasraoul.rosette.databinding.ActivityBookmarksBinding
 import kotlinx.coroutines.flow.collectLatest
@@ -16,7 +19,10 @@ class BookmarksActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityBookmarksBinding
     private val viewModel: BookmarksViewModel by viewModels {
-        BookmarksViewModelFactory((application as RosetteApplication).database.bookmarkDao())
+        BookmarksViewModelFactory(
+            (application as RosetteApplication).database.bookmarkDao(),
+            LanguageManager(this)
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +51,22 @@ class BookmarksActivity : AppCompatActivity() {
                 bookmarksAdapter.submitList(bookmarks)
             }
         }
+
+        val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
+                return false
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                val bookmark = bookmarksAdapter.currentList[position]
+                viewModel.delete(bookmark)
+                Snackbar.make(binding.root, "Bookmark deleted", Snackbar.LENGTH_LONG).show()
+            }
+        }
+
+        val itemTouchHelper = ItemTouchHelper(itemTouchHelperCallback)
+        itemTouchHelper.attachToRecyclerView(binding.bookmarksRecyclerView)
     }
 
     override fun onSupportNavigateUp(): Boolean {
