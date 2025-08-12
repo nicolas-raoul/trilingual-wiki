@@ -189,6 +189,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_random -> {
+                performRandomSearch()
+                true
+            }
             R.id.action_settings -> {
                 showLanguageSettingsDialog()
                 true
@@ -493,6 +497,102 @@ class MainActivity : AppCompatActivity() {
             Log.e(TAG, "getLangLinksForTitle failed for $articleTitle on $lang", e)
         }
         return null
+    }
+
+    private fun performRandomSearch() {
+        Log.d(TAG, "performRandomSearch: Starting random article search.")
+        lifecycleScope.launch {
+            updateStatus("Finding random article with translations...")
+            
+            var attempts = 0
+            val maxAttempts = 20 // Limit attempts to avoid infinite loops
+            
+            while (attempts < maxAttempts) {
+                attempts++
+                
+                // Try to get random articles from search priority languages
+                for (lang in searchPriorityLanguages) {
+                    val randomArticles = getRandomArticles(lang)
+                    if (randomArticles.isNullOrEmpty()) continue
+                    
+                    // Check each random article for translations
+                    for (randomArticle in randomArticles) {
+                        val wikidataId = getWikidataIdForTitle(lang, randomArticle.title)
+                        if (wikidataId != null) {
+                            val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+                            if (claimsResponse.isSuccessful) {
+                                val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                                val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                                
+                                // Check if article has translations in all configured display languages
+                                if (sitelinks != null && hasAllLanguages(sitelinks)) {
+                                    Log.d(TAG, "performRandomSearch: Found random article with translations: ${randomArticle.title}")
+                                    programmaticTextChange = true
+                                    searchBar.setText(randomArticle.title)
+                                    performFullSearch(randomArticle.title, sitelinks)
+                                    return@launch
+                                }
+                            }
+                        }
+                        
+                        // Also try the simpler approach of checking language links directly
+                        val langLinksMap = getLangLinksForTitle(lang, randomArticle.title)
+                        if (langLinksMap != null && hasAllLanguagesInLangLinks(langLinksMap, lang, randomArticle.title)) {
+                            Log.d(TAG, "performRandomSearch: Found random article with language links: ${randomArticle.title}")
+                            programmaticTextChange = true
+                            searchBar.setText(randomArticle.title)
+                            performFullSearch(randomArticle.title)
+                            return@launch
+                        }
+                    }
+                }
+                
+                // Add a small delay between attempts
+                delay(100)
+            }
+            
+            // If we couldn't find a suitable article, fall back to any random article
+            updateStatus("Finding any random article...")
+            for (lang in searchPriorityLanguages) {
+                val randomArticles = getRandomArticles(lang)
+                if (!randomArticles.isNullOrEmpty()) {
+                    val randomArticle = randomArticles.first()
+                    Log.d(TAG, "performRandomSearch: Using fallback random article: ${randomArticle.title}")
+                    programmaticTextChange = true
+                    searchBar.setText(randomArticle.title)
+                    performFullSearch(randomArticle.title)
+                    return@launch
+                }
+            }
+            
+            updateStatus("Could not find random article.")
+        }
+    }
+    
+    private suspend fun getRandomArticles(lang: String): List<RandomArticle>? {
+        val baseUrlForApi = "https://$lang.wikipedia.org/w/api.php"
+        try {
+            val response = wikipediaApiService.getRandomArticles(baseUrl = baseUrlForApi)
+            if (response.isSuccessful) {
+                return response.body()?.query?.random
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.e(TAG, "getRandomArticles failed for $lang", e)
+        }
+        return null
+    }
+    
+    private fun hasAllLanguages(sitelinks: Map<String, String>): Boolean {
+        return displayLanguages.all { lang ->
+            sitelinks.containsKey("${lang}wiki")
+        }
+    }
+    
+    private fun hasAllLanguagesInLangLinks(langLinksMap: Map<String, String>, sourceLang: String, sourceTitle: String): Boolean {
+        return displayLanguages.all { lang ->
+            lang == sourceLang || langLinksMap.containsKey(lang)
+        }
     }
 
     private fun performFullSearch(searchTerm: String, sitelinks: Map<String, String>? = null) {

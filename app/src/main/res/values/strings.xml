@@ -3,6 +3,7 @@
     
     <!-- Language Settings -->
     <string name="language_settings">Language Settings</string>
+    <string name="random_article">Random Article</string>
     <string name="select_languages_title">Select Languages</string>
     <string name="select_languages_instruction">Select exactly 3 languages for your trilingual Wikipedia viewer:</string>
     <string name="selected_languages">Selected Languages:</string>
