@@ -225,17 +225,17 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
-                val historySizes = webViews.map { it.copyBackForwardList().size }
-                val minSize = historySizes.minOrNull() ?: 0
-                val maxSize = historySizes.maxOrNull() ?: 0
+                val histories = webViews.map { it.copyBackForwardList() }
+                val currentIndices = histories.map { it.currentIndex }
+                val minIndex = currentIndices.minOrNull() ?: 0
+                val maxIndex = currentIndices.maxOrNull() ?: 0
 
                 var wentBack = false
-                if (minSize != maxSize) {
-                    // Histories are out of sync. Go back on any view that has a longer
-                    // history than the minimum. This helps to "drain" the history of
-                    // views that have navigated locally (e.g. image viewer).
-                    historySizes.forEachIndexed { index, size ->
-                        if (size > minSize) {
+                if (minIndex != maxIndex) {
+                    // Indices are out of sync. Go back on any view that is further
+                    // ahead in its history. This "drains" local navigations.
+                    currentIndices.forEachIndexed { index, idx ->
+                        if (idx > minIndex) {
                             if (webViews[index].canGoBack()) {
                                 webViews[index].goBack()
                                 wentBack = true
@@ -243,7 +243,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 } else {
-                    // Histories are in sync. Perform a "global" back on all views.
+                    // Indices are in sync. Perform a "global" back on all views.
                     webViews.forEach {
                         if (it.canGoBack()) {
                             it.goBack()
