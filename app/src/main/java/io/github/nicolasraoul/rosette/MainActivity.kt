@@ -217,9 +217,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val webViews = webViewMap.values.toList()
-                val canGoBacks = webViews.map { it.canGoBack() }
-
-                if (canGoBacks.none { it }) {
+                if (webViews.none { it.canGoBack() }) {
                     if (isEnabled) {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
@@ -227,31 +225,35 @@ class MainActivity : AppCompatActivity() {
                     return
                 }
 
-                val histories = webViews.map { it.copyBackForwardList() }
-                val historySizes = histories.map { it.size }
-                val uniqueHistorySizes = historySizes.toSet()
+                val historySizes = webViews.map { it.copyBackForwardList().size }
+                val minSize = historySizes.minOrNull() ?: 0
+                val maxSize = historySizes.maxOrNull() ?: 0
 
-                if (uniqueHistorySizes.size > 1) {
-                    val maxHistorySize = historySizes.maxOrNull() ?: 0
-                    val viewWithLongestHistoryIndex = historySizes.indexOf(maxHistorySize)
-                    if (viewWithLongestHistoryIndex != -1) {
-                        val viewToGoBack = webViews[viewWithLongestHistoryIndex]
-                        if (viewToGoBack.canGoBack()) {
-                            viewToGoBack.goBack()
-                            return
+                var wentBack = false
+                if (minSize != maxSize) {
+                    // Histories are out of sync. Go back on any view that has a longer
+                    // history than the minimum. This helps to "drain" the history of
+                    // views that have navigated locally (e.g. image viewer).
+                    historySizes.forEachIndexed { index, size ->
+                        if (size > minSize) {
+                            if (webViews[index].canGoBack()) {
+                                webViews[index].goBack()
+                                wentBack = true
+                            }
+                        }
+                    }
+                } else {
+                    // Histories are in sync. Perform a "global" back on all views.
+                    webViews.forEach {
+                        if (it.canGoBack()) {
+                            it.goBack()
+                            wentBack = true
                         }
                     }
                 }
 
-                // Fallback to original behavior: go back on all views
-                var wentBack = false
-                webViews.forEach {
-                    if (it.canGoBack()) {
-                        it.goBack()
-                        wentBack = true
-                    }
-                }
                 if (!wentBack) {
+                    // If for some reason no view went back, default to exiting.
                     if (isEnabled) {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
