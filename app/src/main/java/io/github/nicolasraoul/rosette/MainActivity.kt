@@ -222,10 +222,9 @@ class MainActivity : AppCompatActivity() {
                     val webViewsWithUserNav = webViewsWithUserNavigation.filter { it.canGoBack() }
                     if (webViewsWithUserNav.isNotEmpty()) {
                         // Only go back on WebViews that have user navigation (image viewer, etc.)
-                        webViewsWithUserNav.forEach { 
-                            it.goBack()
-                            webViewsWithUserNavigation.remove(it) // Remove from tracking after going back
-                        }
+                        webViewsWithUserNav.forEach { it.goBack() }
+                        // Remove all processed WebViews from tracking after going back
+                        webViewsWithUserNavigation.removeAll(webViewsWithUserNav.toSet())
                     } else if (webViewMap.values.any { it.canGoBack() }) {
                         // Fallback: if no tracked user navigation, go back on all WebViews (original behavior)
                         webViewMap.values.forEach { if (it.canGoBack()) it.goBack() }
