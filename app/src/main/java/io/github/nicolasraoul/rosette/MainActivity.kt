@@ -213,9 +213,45 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 if (suggestionsRecyclerView.visibility == View.VISIBLE) {
                     suggestionsRecyclerView.visibility = View.GONE
-                } else if (webViewMap.values.any { it.canGoBack() }) {
-                    webViewMap.values.forEach { if (it.canGoBack()) it.goBack() }
-                } else {
+                    return
+                }
+
+                val webViews = webViewMap.values.toList()
+                val canGoBacks = webViews.map { it.canGoBack() }
+
+                if (canGoBacks.none { it }) {
+                    if (isEnabled) {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                    return
+                }
+
+                val histories = webViews.map { it.copyBackForwardList() }
+                val historySizes = histories.map { it.size }
+                val uniqueHistorySizes = historySizes.toSet()
+
+                if (uniqueHistorySizes.size > 1) {
+                    val maxHistorySize = historySizes.maxOrNull() ?: 0
+                    val viewWithLongestHistoryIndex = historySizes.indexOf(maxHistorySize)
+                    if (viewWithLongestHistoryIndex != -1) {
+                        val viewToGoBack = webViews[viewWithLongestHistoryIndex]
+                        if (viewToGoBack.canGoBack()) {
+                            viewToGoBack.goBack()
+                            return
+                        }
+                    }
+                }
+
+                // Fallback to original behavior: go back on all views
+                var wentBack = false
+                webViews.forEach {
+                    if (it.canGoBack()) {
+                        it.goBack()
+                        wentBack = true
+                    }
+                }
+                if (!wentBack) {
                     if (isEnabled) {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
