@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "io.github.nicolasraoul.rosette"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "io.github.nicolasraoul.rosette"
         minSdk = 34
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 6
         versionName = "1.4"
 
