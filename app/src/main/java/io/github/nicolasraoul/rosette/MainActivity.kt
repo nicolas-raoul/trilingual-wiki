@@ -84,6 +84,9 @@ class MainActivity : AppCompatActivity() {
     private val currentWikidataId = MutableStateFlow<String?>(null)
     private lateinit var isBookmarked: StateFlow<Boolean>
     private var bookmarkMenuItem: MenuItem? = null
+    
+    // Track which WebViews have recent user navigation (like image viewer)
+    private val webViewsWithUserNavigation = mutableSetOf<WebView>()
 
     private val wikipediaApiService = RetrofitClient.wikipediaApiService
     private val bookmarkDao by lazy {
@@ -193,6 +196,7 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "onCreate: No saved instance state, loading initial URLs.")
             isProgrammaticLoad = true
             pagesToLoad = displayLanguages.size
+            webViewsWithUserNavigation.clear() // Clear tracking for initial load
             webViewMap.forEach { (lang, webView) ->
                 Log.d(TAG, "onCreate: Loading initial URL for $lang WebView.")
                 webView.loadUrl(getWikipediaBaseUrl(lang))
@@ -213,12 +217,23 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 if (suggestionsRecyclerView.visibility == View.VISIBLE) {
                     suggestionsRecyclerView.visibility = View.GONE
-                } else if (webViewMap.values.any { it.canGoBack() }) {
-                    webViewMap.values.forEach { if (it.canGoBack()) it.goBack() }
                 } else {
-                    if (isEnabled) {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
+                    // Check if we have WebViews with recent user navigation (like image viewer)
+                    val webViewsWithUserNav = webViewsWithUserNavigation.filter { it.canGoBack() }
+                    if (webViewsWithUserNav.isNotEmpty()) {
+                        // Only go back on WebViews that have user navigation (image viewer, etc.)
+                        webViewsWithUserNav.forEach { 
+                            it.goBack()
+                            webViewsWithUserNavigation.remove(it) // Remove from tracking after going back
+                        }
+                    } else if (webViewMap.values.any { it.canGoBack() }) {
+                        // Fallback: if no tracked user navigation, go back on all WebViews (original behavior)
+                        webViewMap.values.forEach { if (it.canGoBack()) it.goBack() }
+                    } else {
+                        if (isEnabled) {
+                            isEnabled = false
+                            onBackPressedDispatcher.onBackPressed()
+                        }
                     }
                 }
             }
@@ -309,6 +324,7 @@ class MainActivity : AppCompatActivity() {
         // Reload initial pages with new languages
         isProgrammaticLoad = true
         pagesToLoad = displayLanguages.size
+        webViewsWithUserNavigation.clear() // Clear tracking for recreated WebViews
         webViewMap.forEach { (lang, webView) ->
             Log.d(TAG, "recreateWebViews: Loading initial URL for $lang WebView.")
             webView.loadUrl(getWikipediaBaseUrl(lang))
@@ -422,6 +438,12 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "onPageStarted ($webViewIdentifier): Loading URL: $url")
             progressBarMap[view]?.visibility = View.VISIBLE
             view?.visibility = View.INVISIBLE
+            
+            // Track user navigation (not programmatic) - like image viewer opening
+            if (!isProgrammaticLoad && view != null) {
+                webViewsWithUserNavigation.add(view)
+                Log.d(TAG, "onPageStarted ($webViewIdentifier): Added to user navigation tracking")
+            }
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
@@ -590,6 +612,9 @@ class MainActivity : AppCompatActivity() {
             isProgrammaticLoad = true
             pagesToLoad = 0
             pagesLoaded = 0
+            
+            // Clear user navigation tracking since we're doing programmatic loads
+            webViewsWithUserNavigation.clear()
 
             progressBarMap.values.forEach { it.visibility = View.VISIBLE }
             webViewMap.values.forEach { it.visibility = View.INVISIBLE }
