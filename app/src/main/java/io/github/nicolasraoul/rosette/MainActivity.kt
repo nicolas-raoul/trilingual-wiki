@@ -327,6 +327,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        
+        // Reset zoom levels for all WebViews to maintain readable scale during orientation changes
+        webViewMap.values.forEach { webView ->
+            webView.settings.textZoom = 100
+        }
+        Log.d(TAG, "onConfigurationChanged: Reset WebView zoom levels to 100%")
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
