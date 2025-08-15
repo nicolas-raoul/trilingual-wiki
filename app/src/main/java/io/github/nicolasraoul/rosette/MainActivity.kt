@@ -330,9 +330,39 @@ class MainActivity : AppCompatActivity() {
         
         // Reset zoom levels for all WebViews to maintain readable scale during orientation changes
         webViewMap.values.forEach { webView ->
+            // Reset text zoom setting
             webView.settings.textZoom = 100
+            // Reset the initial scale to automatic
+            webView.setInitialScale(0)
+            
+            // Use JavaScript to reset any CSS zoom/scale transforms that might be affecting the page
+            val resetZoomScript = """
+                (function() {
+                    // Reset CSS zoom and transform scale
+                    document.body.style.zoom = '1';
+                    document.body.style.transform = 'scale(1)';
+                    document.documentElement.style.zoom = '1';
+                    document.documentElement.style.transform = 'scale(1)';
+                    
+                    // Reset viewport meta tag to standard responsive settings
+                    var viewport = document.querySelector('meta[name=viewport]');
+                    if (viewport) {
+                        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');
+                    } else {
+                        // Create viewport meta tag if it doesn't exist
+                        var meta = document.createElement('meta');
+                        meta.name = 'viewport';
+                        meta.content = 'width=device-width, initial-scale=1.0, user-scalable=yes';
+                        document.getElementsByTagName('head')[0].appendChild(meta);
+                    }
+                })();
+            """.trimIndent()
+            
+            webView.evaluateJavascript(resetZoomScript) { result ->
+                Log.d(TAG, "Reset zoom script executed for ${webView.id}")
+            }
         }
-        Log.d(TAG, "onConfigurationChanged: Reset WebView zoom levels to 100%")
+        Log.d(TAG, "onConfigurationChanged: Reset WebView zoom levels, initial scale, and CSS transforms")
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
