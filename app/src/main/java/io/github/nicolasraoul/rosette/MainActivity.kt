@@ -190,7 +190,10 @@ class MainActivity : AppCompatActivity() {
                 savedInstanceState.getBundle("webView$key")?.let { webView.restoreState(it) }
             }
             savedInstanceState.getString("currentWikidataId")?.let { currentWikidataId.value = it }
-            savedInstanceState.getString("searchBarText")?.let { searchBar.setText(it) }
+            savedInstanceState.getString("searchBarText")?.let {
+                programmaticTextChange = true
+                searchBar.setText(it)
+            }
         } else {
             Log.d(TAG, "onCreate: No saved instance state, loading initial URLs.")
             isProgrammaticLoad = true
