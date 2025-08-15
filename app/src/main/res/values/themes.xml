@@ -1,7 +1,16 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Base.Theme.TrilingualWiki" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
+        <!-- Fix overflow menu visibility with proper theming -->
+        <item name="actionOverflowMenuStyle">@style/OverflowMenuStyle</item>
+        <item name="android:actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Light</item>
     </style>
 
     <style name="Theme.TrilingualWiki" parent="Base.Theme.TrilingualWiki" />
+
+    <!-- Custom overflow menu style for high contrast -->
+    <style name="OverflowMenuStyle" parent="Widget.AppCompat.PopupMenu.Overflow">
+        <item name="android:popupBackground">@color/menu_background_light</item>
+        <item name="android:textColor">@color/menu_text_light</item>
+    </style>
 </resources>

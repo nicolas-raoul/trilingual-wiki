@@ -2,4 +2,9 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- Colors for better menu contrast -->
+    <color name="menu_background_light">#FFFFFF</color>
+    <color name="menu_text_light">#000000</color>
+    <color name="menu_background_dark">#2C2C2C</color>
+    <color name="menu_text_dark">#FFFFFF</color>
 </resources>
