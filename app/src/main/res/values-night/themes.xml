@@ -5,12 +5,13 @@
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
         <!-- Fix overflow menu visibility in dark mode -->
         <item name="actionOverflowMenuStyle">@style/OverflowMenuStyleDark</item>
-        <item name="android:actionBarPopupTheme">@style/ThemeOverlay.AppCompat.Dark</item>
     </style>
 
     <!-- Custom overflow menu style for dark mode with high contrast -->
     <style name="OverflowMenuStyleDark" parent="Widget.AppCompat.PopupMenu.Overflow">
         <item name="android:popupBackground">@color/menu_background_dark</item>
         <item name="android:textColor">@color/menu_text_dark</item>
+        <item name="android:textColorPrimary">@color/menu_text_dark</item>
+        <item name="android:textColorSecondary">@color/menu_text_dark</item>
     </style>
 </resources>
