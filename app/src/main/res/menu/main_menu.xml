@@ -9,7 +9,7 @@
     <item
         android:id="@+id/action_random"
         android:title="@string/action_random"
-        android:icon="@android:drawable/ic_menu_sort_by_size"
+        android:icon="@drawable/ic_font_awesome_5_solid_dice_five"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_home"
