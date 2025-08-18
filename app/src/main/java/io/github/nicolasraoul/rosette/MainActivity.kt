@@ -782,7 +782,6 @@ class MainActivity : AppCompatActivity() {
     private fun performFullSearch(searchTerm: String, sitelinks: Map<String, String>? = null, wikidataId: String? = null) {
         Log.d(TAG, "performFullSearch: Starting a new search for '$searchTerm'. Wikidata ID: $wikidataId")
         this.currentWikidataId.value = wikidataId
-        // TODO: Refactor the 'else' block below to fetch the wikidataId for plain searches to allow bookmarking.
 
         lifecycleScope.launch {
             isProgrammaticLoad = true
@@ -792,23 +791,12 @@ class MainActivity : AppCompatActivity() {
             progressBarMap.values.forEach { it.visibility = View.VISIBLE }
             webViewMap.values.forEach { it.visibility = View.INVISIBLE }
 
-            if (sitelinks != null) {
-                updateStatus("Loading articles for \"$searchTerm\"...")
-                displayLanguages.forEach { lang ->
-                    val webView = webViewMap[lang]
-                    val siteKey = "${lang}wiki"
-                    val title = sitelinks[siteKey]
-                    if (title != null) {
-                        pagesToLoad++
-                        Log.d(TAG, "performFullSearch (with sitelinks): Loading '$title' in $lang WebView.")
-                        webView?.loadUrl(getWikipediaPageUrl(lang, title))
-                    } else {
-                        pagesToLoad++
-                        Log.d(TAG, "performFullSearch (with sitelinks): No translation for $lang, showing message.")
-                        showMissingArticleMessage(webView, lang)
-                    }
-                }
-            } else {
+            var finalSitelinks = sitelinks
+            var finalWikidataId = wikidataId
+
+            if (finalSitelinks == null) {
+                // This block handles searches that don't start with a Wikidata ID.
+                // We need to find the article, get its Wikidata ID, and then get its sitelinks.
                 var sourceLangFound: String? = null
                 var finalTitleFromSource: String? = null
 
@@ -828,26 +816,51 @@ class MainActivity : AppCompatActivity() {
                     return@launch
                 }
 
-                updateStatus("Found \"$finalTitleFromSource\" on $sourceLangFound.wikipedia.org. Fetching translations...")
-                val langLinksMap = getLangLinksForTitle(sourceLangFound, finalTitleFromSource)
+                // Now we have a title, let's get the Wikidata ID.
+                finalWikidataId = getWikidataIdForTitle(sourceLangFound, finalTitleFromSource)
+                this@MainActivity.currentWikidataId.value = finalWikidataId
 
-                updateStatus("Loading articles...")
+                if (finalWikidataId != null) {
+                    // We have the ID, now get the sitelinks from Wikidata.
+                    updateStatus("Found \"$finalTitleFromSource\". Fetching translations...")
+                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = finalWikidataId)
+                    if (claimsResponse.isSuccessful) {
+                        finalSitelinks = claimsResponse.body()?.entities?.get(finalWikidataId)?.sitelinks?.mapValues { it.value.title }
+                    }
+                } else {
+                    // Fallback for articles without a Wikidata ID (e.g., talk pages).
+                    // Use the old method of getting langlinks.
+                    updateStatus("Found \"$finalTitleFromSource\". Fetching translations...")
+                    val langLinksMap = getLangLinksForTitle(sourceLangFound, finalTitleFromSource)
+                    finalSitelinks = langLinksMap
+                }
+            }
+
+            if (finalSitelinks != null) {
+                updateStatus("Loading articles for \"$searchTerm\"...")
                 displayLanguages.forEach { lang ->
                     val webView = webViewMap[lang]
-                    val title = if (lang == sourceLangFound) finalTitleFromSource else langLinksMap?.get(lang)
+                    val siteKey = if (finalSitelinks.containsKey("${lang}wiki")) "${lang}wiki" else lang
+                    val title = finalSitelinks[siteKey]
                     if (title != null) {
                         pagesToLoad++
                         Log.d(TAG, "performFullSearch: Loading '$title' in $lang WebView.")
                         webView?.loadUrl(getWikipediaPageUrl(lang, title))
                     } else {
                         pagesToLoad++
-                        Log.d(TAG, "performFullSearch (no sitelinks): No translation for $lang, showing message.")
+                        Log.d(TAG, "performFullSearch: No translation for $lang, showing message.")
                         showMissingArticleMessage(webView, lang)
                     }
                 }
+            } else {
+                // This should rarely happen, but as a fallback, load the initial article.
+                updateStatus("Could not find translations for \"$searchTerm\".")
+                val webView = webViewMap[searchPriorityLanguages[0]]
+                pagesToLoad++
+                webView?.loadUrl(getWikipediaPageUrl(searchPriorityLanguages[0], searchTerm))
             }
 
-            if(pagesToLoad == 0) {
+            if (pagesToLoad == 0) {
                 isProgrammaticLoad = false
                 checkAllWebViewsLoaded()
             }
