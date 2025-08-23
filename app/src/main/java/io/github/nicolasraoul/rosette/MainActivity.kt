@@ -714,24 +714,85 @@ class MainActivity : AppCompatActivity() {
         // Add a small delay to allow WebView to finish navigating
         lifecycleScope.launch {
             delay(100) // Small delay to ensure page has loaded
-            // Use the first WebView that is visible to get the current page title
-            val visibleWebView = webViewMap.values.firstOrNull { it.visibility == View.VISIBLE }
-            visibleWebView?.evaluateJavascript("document.title") { result ->
-                val title = result?.removeSurrounding("\"")
-                if (!title.isNullOrEmpty() && title != "null") {
-                    // Extract just the article title (remove " - Wikipedia" suffix if present)
-                    val articleTitle = if (title.contains(" - Wikipedia")) {
-                        title.substringBefore(" - Wikipedia")
-                    } else {
-                        title
-                    }
-                    runOnUiThread {
-                        programmaticTextChange = true
-                        searchBar.setText(articleTitle)
+            
+            // Find the visible WebView and its corresponding language
+            val visibleWebViewEntry = webViewMap.entries.firstOrNull { it.value.visibility == View.VISIBLE }
+            val visibleWebView = visibleWebViewEntry?.value
+            val currentLanguage = visibleWebViewEntry?.key
+            
+            if (visibleWebView != null && currentLanguage != null) {
+                visibleWebView.evaluateJavascript("document.title") { result ->
+                    val pageTitle = result?.removeSurrounding("\"")
+                    if (!pageTitle.isNullOrEmpty() && pageTitle != "null") {
+                        lifecycleScope.launch {
+                            // Extract article title by removing language-specific Wikipedia suffix
+                            val articleTitle = extractArticleTitleFromPageTitle(pageTitle)
+                            
+                            // Try to get a proper title from Wikidata in the user's preferred language
+                            val wikidataId = getWikidataIdForTitle(currentLanguage, articleTitle)
+                            val finalTitle = if (wikidataId != null) {
+                                getArticleTitleFromWikidata(wikidataId) ?: articleTitle
+                            } else {
+                                articleTitle
+                            }
+                            
+                            runOnUiThread {
+                                programmaticTextChange = true
+                                searchBar.setText(finalTitle)
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+    
+    private fun extractArticleTitleFromPageTitle(pageTitle: String): String {
+        // Remove common Wikipedia suffixes in different languages
+        val commonSuffixes = listOf(
+            " - Wikipedia",           // English
+            " — Wikipédia",          // French
+            " - ウィキペディア",        // Japanese
+            " — ويكيبيديا",          // Arabic
+            " — ויקיפדיה",           // Hebrew
+            " — Βικιπαίδεια",        // Greek
+            " — Vikipedio",          // Esperanto
+        )
+        
+        for (suffix in commonSuffixes) {
+            if (pageTitle.contains(suffix)) {
+                return pageTitle.substringBefore(suffix)
+            }
+        }
+        
+        return pageTitle
+    }
+    
+    private suspend fun getArticleTitleFromWikidata(wikidataId: String): String? {
+        try {
+            val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+            if (claimsResponse.isSuccessful) {
+                val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                val labels = entity?.labels
+                
+                if (labels != null) {
+                    // Try to get label in one of the display languages, preferring the first one
+                    for (language in displayLanguages) {
+                        labels[language]?.value?.let { return it }
+                    }
+                    
+                    // Fallback to English if available
+                    labels["en"]?.value?.let { return it }
+                    
+                    // Last resort: any available label
+                    labels.values.firstOrNull()?.value?.let { return it }
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.w(TAG, "Failed to get article title from Wikidata for $wikidataId", e)
+        }
+        return null
     }
 
     private suspend fun getFinalArticleTitle(lang: String, searchTerm: String): String? {
