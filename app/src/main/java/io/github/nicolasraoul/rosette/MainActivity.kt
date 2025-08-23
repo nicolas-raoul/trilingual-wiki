@@ -855,6 +855,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun performRandomArticleSearch() {
+        // Ensure displayLanguages is current before searching
+        loadConfiguredLanguages()
+        Log.d(TAG, "Random search starting with languages: ${displayLanguages.joinToString()}")
+        
         updateStatus(getString(R.string.loading_random_article))
         val maxAttempts = 5 // Limit attempts to avoid infinite loops
         var attempts = 0
@@ -904,6 +908,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     // Check if all our display languages have articles
+                    Log.d(TAG, "Checking article '${article.title}' for languages: ${displayLanguages.joinToString()}")
                     val hasAllLanguages = displayLanguages.all { lang ->
                         val siteKey = "${lang}wiki"
                         val hasArticle = sitelinks.containsKey(siteKey)
