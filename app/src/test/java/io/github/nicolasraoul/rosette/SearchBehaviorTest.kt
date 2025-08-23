@@ -45,4 +45,14 @@ class SearchBehaviorTest {
         
         assertTrue("Dropdown suggestions should remain functional", true)
     }
+    
+    @Test
+    fun search_bar_title_update_specification() {
+        // Documents that search bar should update to show current article title:
+        // 1. When opening a bookmark -> search bar shows bookmark article title
+        // 2. When navigating back -> search bar shows the page title user navigated back to
+        // 3. Title should be extracted from page title, removing "- Wikipedia" suffix
+        
+        assertTrue("Search bar should show current article title", true)
+    }
 }

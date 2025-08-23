@@ -107,6 +107,9 @@ class MainActivity : AppCompatActivity() {
                         val entity = claimsResponse.body()?.entities?.get(wikidataId)
                         val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
                         val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
+                        // Update search bar to show the bookmark title
+                        programmaticTextChange = true
+                        searchBar.setText(label)
                         if (sitelinks != null) {
                             performFullSearch(label, sitelinks, wikidataId)
                         } else {
@@ -251,6 +254,8 @@ class MainActivity : AppCompatActivity() {
                     suggestionsRecyclerView.visibility = View.GONE
                 } else if (webViewMap.values.any { it.canGoBack() }) {
                     webViewMap.values.forEach { if (it.canGoBack()) it.goBack() }
+                    // Update search bar with the current page title after going back
+                    updateSearchBarFromCurrentPage()
                 } else {
                     if (isEnabled) {
                         isEnabled = false
@@ -736,6 +741,90 @@ class MainActivity : AppCompatActivity() {
     private fun hideKeyboard() {
         val inputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         currentFocus?.let { inputMethodManager.hideSoftInputFromWindow(it.windowToken, 0) }
+    }
+
+    private fun updateSearchBarFromCurrentPage() {
+        // Add a small delay to allow WebView to finish navigating
+        lifecycleScope.launch {
+            delay(100) // Small delay to ensure page has loaded
+            
+            // Find the visible WebView and its corresponding language
+            val visibleWebViewEntry = webViewMap.entries.firstOrNull { it.value.visibility == View.VISIBLE }
+            val visibleWebView = visibleWebViewEntry?.value
+            val currentLanguage = visibleWebViewEntry?.key
+            
+            if (visibleWebView != null && currentLanguage != null) {
+                visibleWebView.evaluateJavascript("window.location.href") { result ->
+                    val currentUrl = result?.removeSurrounding("\"")
+                    if (!currentUrl.isNullOrEmpty() && currentUrl != "null") {
+                        lifecycleScope.launch {
+                            // Extract article title from URL (language-neutral approach)
+                            val articleTitle = extractArticleTitleFromUrl(currentUrl)
+                            
+                            if (articleTitle != null) {
+                                // Try to get a proper title from Wikidata in the user's preferred language
+                                val wikidataId = getWikidataIdForTitle(currentLanguage, articleTitle)
+                                val finalTitle = if (wikidataId != null) {
+                                    getArticleTitleFromWikidata(wikidataId) ?: articleTitle
+                                } else {
+                                    articleTitle
+                                }
+                                
+                                runOnUiThread {
+                                    programmaticTextChange = true
+                                    searchBar.setText(finalTitle)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private fun extractArticleTitleFromUrl(url: String): String? {
+        try {
+            // Wikipedia URLs have the format: https://lang.m.wikipedia.org/wiki/Article_Name
+            // Extract the article name from the URL path
+            val uri = java.net.URI(url)
+            val path = uri.path
+            
+            if (path.startsWith("/wiki/")) {
+                val articleName = path.substring(6) // Remove "/wiki/" prefix
+                // Decode URL encoding and replace underscores with spaces
+                return java.net.URLDecoder.decode(articleName, "UTF-8").replace("_", " ")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to extract article title from URL: $url", e)
+        }
+        return null
+    }
+    
+    private suspend fun getArticleTitleFromWikidata(wikidataId: String): String? {
+        try {
+            val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+            if (claimsResponse.isSuccessful) {
+                val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                val labels = entity?.labels
+                
+                if (labels != null) {
+                    // Try to get label in one of the display languages, preferring the first one
+                    for (language in displayLanguages) {
+                        labels[language]?.value?.let { return it }
+                    }
+                    
+                    // Fallback to English if available
+                    labels["en"]?.value?.let { return it }
+                    
+                    // Last resort: any available label
+                    labels.values.firstOrNull()?.value?.let { return it }
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.w(TAG, "Failed to get article title from Wikidata for $wikidataId", e)
+        }
+        return null
     }
 
     private suspend fun getFinalArticleTitle(lang: String, searchTerm: String): String? {
