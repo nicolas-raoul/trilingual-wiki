@@ -107,6 +107,9 @@ class MainActivity : AppCompatActivity() {
                         val entity = claimsResponse.body()?.entities?.get(wikidataId)
                         val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
                         val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
+                        // Update search bar to show the bookmark title
+                        programmaticTextChange = true
+                        searchBar.setText(label)
                         if (sitelinks != null) {
                             performFullSearch(label, sitelinks, wikidataId)
                         } else {
@@ -227,6 +230,8 @@ class MainActivity : AppCompatActivity() {
                     suggestionsRecyclerView.visibility = View.GONE
                 } else if (webViewMap.values.any { it.canGoBack() }) {
                     webViewMap.values.forEach { if (it.canGoBack()) it.goBack() }
+                    // Update search bar with the current page title after going back
+                    updateSearchBarFromCurrentPage()
                 } else {
                     if (isEnabled) {
                         isEnabled = false
@@ -703,6 +708,30 @@ class MainActivity : AppCompatActivity() {
     private fun hideKeyboard() {
         val inputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         currentFocus?.let { inputMethodManager.hideSoftInputFromWindow(it.windowToken, 0) }
+    }
+
+    private fun updateSearchBarFromCurrentPage() {
+        // Add a small delay to allow WebView to finish navigating
+        lifecycleScope.launch {
+            delay(100) // Small delay to ensure page has loaded
+            // Use the first WebView that is visible to get the current page title
+            val visibleWebView = webViewMap.values.firstOrNull { it.visibility == View.VISIBLE }
+            visibleWebView?.evaluateJavascript("document.title") { result ->
+                val title = result?.removeSurrounding("\"")
+                if (!title.isNullOrEmpty() && title != "null") {
+                    // Extract just the article title (remove " - Wikipedia" suffix if present)
+                    val articleTitle = if (title.contains(" - Wikipedia")) {
+                        title.substringBefore(" - Wikipedia")
+                    } else {
+                        title
+                    }
+                    runOnUiThread {
+                        programmaticTextChange = true
+                        searchBar.setText(articleTitle)
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun getFinalArticleTitle(lang: String, searchTerm: String): String? {
