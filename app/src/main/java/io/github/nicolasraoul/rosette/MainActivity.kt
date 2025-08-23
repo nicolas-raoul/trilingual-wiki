@@ -721,24 +721,26 @@ class MainActivity : AppCompatActivity() {
             val currentLanguage = visibleWebViewEntry?.key
             
             if (visibleWebView != null && currentLanguage != null) {
-                visibleWebView.evaluateJavascript("document.title") { result ->
-                    val pageTitle = result?.removeSurrounding("\"")
-                    if (!pageTitle.isNullOrEmpty() && pageTitle != "null") {
+                visibleWebView.evaluateJavascript("window.location.href") { result ->
+                    val currentUrl = result?.removeSurrounding("\"")
+                    if (!currentUrl.isNullOrEmpty() && currentUrl != "null") {
                         lifecycleScope.launch {
-                            // Extract article title by removing language-specific Wikipedia suffix
-                            val articleTitle = extractArticleTitleFromPageTitle(pageTitle)
+                            // Extract article title from URL (language-neutral approach)
+                            val articleTitle = extractArticleTitleFromUrl(currentUrl)
                             
-                            // Try to get a proper title from Wikidata in the user's preferred language
-                            val wikidataId = getWikidataIdForTitle(currentLanguage, articleTitle)
-                            val finalTitle = if (wikidataId != null) {
-                                getArticleTitleFromWikidata(wikidataId) ?: articleTitle
-                            } else {
-                                articleTitle
-                            }
-                            
-                            runOnUiThread {
-                                programmaticTextChange = true
-                                searchBar.setText(finalTitle)
+                            if (articleTitle != null) {
+                                // Try to get a proper title from Wikidata in the user's preferred language
+                                val wikidataId = getWikidataIdForTitle(currentLanguage, articleTitle)
+                                val finalTitle = if (wikidataId != null) {
+                                    getArticleTitleFromWikidata(wikidataId) ?: articleTitle
+                                } else {
+                                    articleTitle
+                                }
+                                
+                                runOnUiThread {
+                                    programmaticTextChange = true
+                                    searchBar.setText(finalTitle)
+                                }
                             }
                         }
                     }
@@ -747,25 +749,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun extractArticleTitleFromPageTitle(pageTitle: String): String {
-        // Remove common Wikipedia suffixes in different languages
-        val commonSuffixes = listOf(
-            " - Wikipedia",           // English
-            " — Wikipédia",          // French
-            " - ウィキペディア",        // Japanese
-            " — ويكيبيديا",          // Arabic
-            " — ויקיפדיה",           // Hebrew
-            " — Βικιπαίδεια",        // Greek
-            " — Vikipedio",          // Esperanto
-        )
-        
-        for (suffix in commonSuffixes) {
-            if (pageTitle.contains(suffix)) {
-                return pageTitle.substringBefore(suffix)
+    private fun extractArticleTitleFromUrl(url: String): String? {
+        try {
+            // Wikipedia URLs have the format: https://lang.m.wikipedia.org/wiki/Article_Name
+            // Extract the article name from the URL path
+            val uri = java.net.URI(url)
+            val path = uri.path
+            
+            if (path.startsWith("/wiki/")) {
+                val articleName = path.substring(6) // Remove "/wiki/" prefix
+                // Decode URL encoding and replace underscores with spaces
+                return java.net.URLDecoder.decode(articleName, "UTF-8").replace("_", " ")
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to extract article title from URL: $url", e)
         }
-        
-        return pageTitle
+        return null
     }
     
     private suspend fun getArticleTitleFromWikidata(wikidataId: String): String? {
