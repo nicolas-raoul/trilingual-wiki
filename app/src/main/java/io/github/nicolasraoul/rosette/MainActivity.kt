@@ -107,6 +107,8 @@ class MainActivity : AppCompatActivity() {
                         val entity = claimsResponse.body()?.entities?.get(wikidataId)
                         val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
                         val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
+                    programmaticTextChange = true
+                    searchBar.setText(label)
                         if (sitelinks != null) {
                             performFullSearch(label, sitelinks, wikidataId)
                         } else {
@@ -593,6 +595,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getArticleTitleFromUrl(url: Uri): String? {
+        var articleTitle: String? = null
+        if (url.path?.startsWith("/wiki/") == true) {
+            val pathSegments = url.pathSegments
+            if (pathSegments.size > 1 && pathSegments[0] == "wiki") {
+                articleTitle = URLDecoder.decode(pathSegments.subList(1, pathSegments.size).joinToString("/"), "UTF-8").replace("_", " ")
+            }
+        } else if (url.path?.startsWith("/w/index.php") == true) {
+            articleTitle = url.getQueryParameter("title")?.replace("_", " ")
+        }
+        return articleTitle
+    }
+
     private inner class TrilingualWebViewClient(private val webViewIdentifier: String) : WebViewClient() {
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
@@ -604,7 +619,17 @@ class MainActivity : AppCompatActivity() {
         override fun onPageFinished(view: WebView?, url: String?) {
             super.onPageFinished(view, url)
             Log.d(TAG, "onPageFinished ($webViewIdentifier): Finished loading URL: $url")
-            
+
+            // Update search bar text on back/forward navigation
+            if (!isProgrammaticLoad) {
+                url?.let { Uri.parse(it) }?.let { uri ->
+                    getArticleTitleFromUrl(uri)?.let { articleTitle ->
+                        programmaticTextChange = true
+                        searchBar.setText(articleTitle)
+                    }
+                }
+            }
+
             // Inject CSS to add padding to prevent text cropping at edges
             view?.evaluateJavascript("""
                 (function() {
@@ -631,16 +656,7 @@ class MainActivity : AppCompatActivity() {
             if (isProgrammaticLoad) return false
 
             if (url.host?.endsWith("wikipedia.org") == true) {
-                var articleTitle: String? = null
-                if (url.path?.startsWith("/wiki/") == true) {
-                    val pathSegments = url.pathSegments
-                    if (pathSegments.size > 1 && pathSegments[0] == "wiki") {
-                        articleTitle = URLDecoder.decode(pathSegments.subList(1, pathSegments.size).joinToString("/"), "UTF-8").replace("_", " ")
-                    }
-                } else if (url.path?.startsWith("/w/index.php") == true) {
-                    articleTitle = url.getQueryParameter("title")?.replace("_", " ")
-                }
-
+                val articleTitle = getArticleTitleFromUrl(url)
                 if (!articleTitle.isNullOrEmpty()) {
                     programmaticTextChange = true
                     searchBar.setText(articleTitle)
