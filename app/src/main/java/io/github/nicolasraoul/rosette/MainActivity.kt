@@ -151,16 +151,21 @@ class MainActivity : AppCompatActivity() {
 
         suggestionsRecyclerView = findViewById(R.id.search_suggestions_recycler_view)
 
-        webViewMap = mapOf(
-            displayLanguages[0] to webViewEN,
-            displayLanguages[1] to webViewFR,
-            displayLanguages[2] to webViewJA
-        )
-        progressBarMap = mapOf(
-            webViewEN to progressBarEN,
-            webViewFR to progressBarFR,
-            webViewJA to progressBarJA
-        )
+        val webViews = listOf(webViewEN, webViewFR, webViewJA)
+        val progressBars = listOf(progressBarEN, progressBarFR, progressBarJA)
+        val mutableWebViewMap = mutableMapOf<String, WebView>()
+        val mutableProgressBarMap = mutableMapOf<WebView, ProgressBar>()
+
+        displayLanguages.forEachIndexed { index, lang ->
+            if (index < webViews.size) {
+                val webView = webViews[index]
+                val progressBar = progressBars[index]
+                mutableWebViewMap[lang] = webView
+                mutableProgressBarMap[webView] = progressBar
+            }
+        }
+        webViewMap = mutableWebViewMap.toMap()
+        progressBarMap = mutableProgressBarMap.toMap()
 
         ViewCompat.setOnApplyWindowInsetsListener(mainLayout) { view, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -368,11 +373,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun recreateWebViews() {
         // Recreate the webview mapping with new languages
-        webViewMap = mapOf(
-            displayLanguages[0] to webViewEN,
-            displayLanguages[1] to webViewFR,
-            displayLanguages[2] to webViewJA
-        )
+        val webViews = listOf(webViewEN, webViewFR, webViewJA)
+        val mutableWebViewMap = mutableMapOf<String, WebView>()
+
+        displayLanguages.forEachIndexed { index, lang ->
+            if (index < webViews.size) {
+                mutableWebViewMap[lang] = webViews[index]
+            }
+        }
+        webViewMap = mutableWebViewMap.toMap()
         
         // Update WebViewClient for each WebView with new language identifiers
         webViewMap.forEach { (lang, webView) ->
