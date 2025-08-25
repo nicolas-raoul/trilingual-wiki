@@ -78,7 +78,7 @@ interface WikipediaApiService {
         @Url baseUrl: String,
         @Query("action") action: String = "query",
         @Query("meta") meta: String = "siteinfo",
-        @Query.("siprop") siprop: String = "statistics",
+        @Query("siprop") siprop: String = "statistics",
         @Query("format") format: String = "json"
     ): Response<SiteInfoResponse>
 }
