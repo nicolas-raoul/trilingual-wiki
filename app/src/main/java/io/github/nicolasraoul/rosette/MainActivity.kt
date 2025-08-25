@@ -322,6 +322,8 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.action_home -> {
                 Log.d(TAG, "Home action clicked")
+                programmaticTextChange = true
+                searchBar.setText("")
                 lifecycleScope.launch {
                     val wikidataId = "Q5296" // Item for https://en.wikipedia.org/wiki/Main_Page and its equivalents in other languages
                     val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
