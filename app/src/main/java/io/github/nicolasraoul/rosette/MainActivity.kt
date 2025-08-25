@@ -711,6 +711,25 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
+    private fun isDisambiguationPage(entity: EntityClaim): Boolean {
+        // Check if the entity has P31 (instance of) claim with Q4167410 (disambiguation page)
+        val instanceOfClaims = entity.claims?.get("P31") ?: return false
+        
+        return instanceOfClaims.any { claim ->
+            val value = claim.mainsnak.datavalue?.value
+            when (value) {
+                is String -> value == "Q4167410"
+                is Map<*, *> -> {
+                    // Handle case where value is a complex object with id
+                    @Suppress("UNCHECKED_CAST")
+                    val valueMap = value as? Map<String, Any>
+                    valueMap?.get("id") == "Q4167410"
+                }
+                else -> false
+            }
+        }
+    }
+
     private fun checkAllWebViewsLoaded() {
         if (pagesLoaded >= pagesToLoad) {
             isProgrammaticLoad = false
@@ -920,6 +939,12 @@ class MainActivity : AppCompatActivity() {
 
                 if (sitelinks == null) {
                     Log.d(TAG, "No sitelinks found for $wikidataId")
+                    continue
+                }
+
+                // Skip disambiguation pages
+                if (entity != null && isDisambiguationPage(entity)) {
+                    Log.d(TAG, "Skipping disambiguation page: ${randomArticle.title} (Wikidata: $wikidataId)")
                     continue
                 }
 
