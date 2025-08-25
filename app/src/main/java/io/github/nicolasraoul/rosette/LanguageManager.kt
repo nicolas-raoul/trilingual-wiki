@@ -130,6 +130,38 @@ class LanguageManager(private val context: Context) {
     fun getLastWikidataId(): String? {
         return preferences.getString(KEY_LAST_WIKIDATA_ID, null)
     }
+
+    /**
+     * Fetches the number of articles for a single Wikipedia language edition.
+     *
+     * @param languageCode The language code (e.g., "en", "ja", "fr").
+     * @return The article count, or null if the request fails or the code is invalid.
+     */
+    suspend fun getWikipediaArticleCount(languageCode: String): Int? {
+        val storedCount = preferences.getInt("article_count_$languageCode", -1)
+        if (storedCount != -1) {
+            return storedCount
+        }
+
+        return try {
+            val baseUrlForApi = "https://$languageCode.wikipedia.org/w/api.php"
+            val response = wikipediaApiService.getWikipediaArticleCount(baseUrl = baseUrlForApi)
+
+            if (response.isSuccessful) {
+                val articleCount = response.body()?.query?.statistics?.articles
+                if (articleCount != null) {
+                    preferences.edit().putInt("article_count_$languageCode", articleCount).apply()
+                }
+                articleCount
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            // Handles network errors or invalid language codes (e.g., "xx")
+            Log.e(TAG, "Error fetching count for '$languageCode': ${e.message}")
+            null
+        }
+    }
 }
 
 /**
