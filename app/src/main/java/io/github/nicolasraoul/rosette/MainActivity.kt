@@ -429,12 +429,40 @@ class MainActivity : AppCompatActivity() {
         // Reinitialize suggestions adapter with new language names
         setupSuggestions()
 
+        // Check if we have a current article to preserve
+        val currentArticleId = currentWikidataId.value
+        if (currentArticleId != null) {
+            // Reload the current article to preserve user's reading context
+            Log.d(TAG, "recreateWebViews: Preserving current article with Wikidata ID: $currentArticleId")
+            lifecycleScope.launch {
+                val claimsResponse = wikipediaApiService.getEntityClaims(ids = currentArticleId)
+                if (claimsResponse.isSuccessful) {
+                    val entity = claimsResponse.body()?.entities?.get(currentArticleId)
+                    val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                    val label = entity?.labels?.get("en")?.value ?: searchBar.text.toString().ifEmpty { "Unknown Title" }
+                    if (sitelinks != null) {
+                        performFullSearch(label, sitelinks, currentArticleId)
+                    } else {
+                        performFullSearch(label, wikidataId = currentArticleId)
+                    }
+                } else {
+                    // Fallback to loading homepage if API call fails
+                    loadHomepageUrls()
+                }
+            }
+        } else {
+            // No current article, load homepage URLs as before
+            loadHomepageUrls()
+        }
+    }
+
+    private fun loadHomepageUrls() {
         // Reload initial pages with new languages
         isProgrammaticLoad = true
         pagesToLoad = displayLanguages.size
         webViews.forEachIndexed { index, webView ->
             val lang = displayLanguages[index]
-            Log.d(TAG, "recreateWebViews: Loading initial URL for $lang WebView.")
+            Log.d(TAG, "loadHomepageUrls: Loading initial URL for $lang WebView.")
             webView.loadUrl(getWikipediaBaseUrl(lang))
         }
     }
