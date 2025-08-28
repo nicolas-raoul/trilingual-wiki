@@ -440,6 +440,11 @@ class MainActivity : AppCompatActivity() {
                     val entity = claimsResponse.body()?.entities?.get(currentArticleId)
                     val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
                     val label = entity?.labels?.get("en")?.value ?: searchBar.text.toString().ifEmpty { "Unknown Title" }
+                    
+                    // Update search bar text to match the article being loaded
+                    programmaticTextChange = true
+                    searchBar.setText(label)
+                    
                     if (sitelinks != null) {
                         performFullSearch(label, sitelinks, currentArticleId)
                     } else {
