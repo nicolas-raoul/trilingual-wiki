@@ -1190,9 +1190,9 @@ class MainActivity : AppCompatActivity() {
         currentGlobalMatch += findResults[activeWebViewIndex].activeMatchOrdinal + 1
 
         if (totalMatches == 0) {
-            findCount.text = "0/0"
+            findCount?.text = "0/0"
         } else {
-            findCount.text = "$currentGlobalMatch/$totalMatches"
+            findCount?.text = "$currentGlobalMatch/$totalMatches"
         }
     }
 
