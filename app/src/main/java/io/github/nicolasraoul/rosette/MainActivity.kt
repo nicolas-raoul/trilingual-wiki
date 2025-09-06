@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webviewContainer: LinearLayout
     private val webViews = mutableListOf<WebView>()
     private val progressBarMap = mutableMapOf<WebView, ProgressBar>()
+    private val webViewsWithMissingArticles = mutableSetOf<WebView>()
 
     private lateinit var searchBar: EditText
     private lateinit var statusTextView: TextView
@@ -419,6 +420,7 @@ class MainActivity : AppCompatActivity() {
         webviewContainer.removeAllViews()
         webViews.clear()
         progressBarMap.clear()
+        webViewsWithMissingArticles.clear()
 
         // Set container orientation based on preference
         val isVertical = languageManager.isVerticalLayout()
@@ -474,6 +476,12 @@ class MainActivity : AppCompatActivity() {
             fab.setPadding(padding, 0, padding, 0)
 
             fab.setOnClickListener { view ->
+                // Check if this webview is showing a missing article message
+                if (webViewsWithMissingArticles.contains(webView)) {
+                    // Don't show popup menu if there's no article
+                    return@setOnClickListener
+                }
+                
                 val popup = android.widget.PopupMenu(this, view)
                 popup.menu.add("Open in Wikipedia app")
                 popup.menu.add("Open in web browser")
@@ -796,6 +804,11 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "onPageStarted ($webViewIdentifier): Loading URL: $url")
             progressBarMap[view]?.visibility = View.VISIBLE
             view?.visibility = View.INVISIBLE
+            
+            // If loading a real Wikipedia URL (not data:text/html), remove from missing articles set
+            if (view != null && url != null && !url.startsWith("data:")) {
+                webViewsWithMissingArticles.remove(view)
+            }
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
@@ -1106,6 +1119,11 @@ class MainActivity : AppCompatActivity() {
             </html>
         """.trimIndent()
         webView?.loadData(htmlContent, "text/html; charset=utf-8", "UTF-8")
+        
+        // Mark this webview as showing missing article message
+        if (webView != null) {
+            webViewsWithMissingArticles.add(webView)
+        }
     }
 
     private fun performFullSearch(searchTerm: String, sitelinks: Map<String, String>? = null, wikidataId: String? = null) {
