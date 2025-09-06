@@ -1007,15 +1007,26 @@ class MainActivity : AppCompatActivity() {
         // Check P31 (instance of) claims for Q4167410 (Wikimedia disambiguation page)
         val instanceOfClaims = entity.claims["P31"] ?: return false
         
-        return instanceOfClaims.any { claim ->
+        val isDisambig = instanceOfClaims.any { claim ->
             val dataValue = claim.mainsnak.datavalue?.value
             // The value might be an object with an "id" field, or just a string
+            // It could also be a full URI ending with the entity ID
             when (dataValue) {
-                is Map<*, *> -> (dataValue["id"] as? String) == "Q4167410"
-                is String -> dataValue == "Q4167410"
+                is Map<*, *> -> {
+                    val id = dataValue["id"] as? String
+                    id == "Q4167410" || id?.endsWith("/Q4167410") == true
+                }
+                is String -> dataValue == "Q4167410" || dataValue.endsWith("/Q4167410")
                 else -> false
             }
         }
+        
+        // Log disambiguation check for debugging
+        if (isDisambig) {
+            Log.d(TAG, "Detected disambiguation page (${entity.id}) with P31 claims: ${instanceOfClaims.map { it.mainsnak.datavalue?.value }}")
+        }
+        
+        return isDisambig
     }
 
     private fun checkAllWebViewsLoaded() {
@@ -1241,6 +1252,14 @@ class MainActivity : AppCompatActivity() {
                         if (isDisambiguationPage(entity)) {
                             Log.d(TAG, "Skipping disambiguation page: ${randomArticle.title} (Wikidata: $wikidataId)")
                             return@repeat // Continue to next attempt
+                        }
+                        
+                        // Log P31 claims for debugging (only in debug builds)
+                        entity?.claims?.get("P31")?.let { p31Claims ->
+                            val claimValues = p31Claims.mapNotNull { claim ->
+                                claim.mainsnak.datavalue?.value?.toString()
+                            }
+                            Log.d(TAG, "Article ${randomArticle.title} P31 claims: $claimValues")
                         }
                         
                         Log.d(TAG, "Found suitable random article: ${randomArticle.title} (Wikidata: $wikidataId)")
