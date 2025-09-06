@@ -80,12 +80,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var suggestionsAdapter: SearchSuggestionsAdapter
     private var searchJob: Job? = null
 
-    private lateinit var findBar: ConstraintLayout
-    private lateinit var findText: EditText
-    private lateinit var findCount: TextView
-    private lateinit var findPrevious: ImageView
-    private lateinit var findNext: ImageView
-    private lateinit var findClose: ImageView
+    private var findBar: ConstraintLayout? = null
+    private var findText: EditText? = null
+    private var findCount: TextView? = null
+    private var findPrevious: ImageView? = null
+    private var findNext: ImageView? = null
+    private var findClose: ImageView? = null
 
     private data class FindResult(var activeMatchOrdinal: Int = 0, var numberOfMatches: Int = 0)
     private val findResults = mutableListOf<FindResult>()
@@ -225,6 +225,10 @@ class MainActivity : AppCompatActivity() {
         findPrevious = findViewById(R.id.find_previous)
         findNext = findViewById(R.id.find_next)
         findClose = findViewById(R.id.find_close)
+
+        if (findClose == null) {
+            Log.e(TAG, "find_close view not found! The layout might be incorrect.")
+        }
 
         createWebViews()
 
@@ -411,7 +415,7 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_find -> {
-                findBar.visibility = View.VISIBLE
+                findBar?.visibility = View.VISIBLE
                 true
             }
             R.id.action_random -> {
@@ -663,15 +667,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupFindBar() {
-        findClose.setOnClickListener {
-            findBar.visibility = View.GONE
+        findClose?.setOnClickListener {
+            findBar?.visibility = View.GONE
             val searchText = ""
             webViews.forEach { it.evaluateJavascript("highlightAll('$searchText')", null) }
-            findText.text.clear()
+            findText?.text?.clear()
             hideKeyboard()
         }
 
-        findPrevious.setOnClickListener {
+        findPrevious?.setOnClickListener {
             if (webViews.isEmpty() || findResults.isEmpty()) return@setOnClickListener
 
             val currentResult = findResults[activeWebViewIndex]
@@ -695,7 +699,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findNext.setOnClickListener {
+        findNext?.setOnClickListener {
             if (webViews.isEmpty() || findResults.isEmpty()) return@setOnClickListener
 
             val currentResult = findResults[activeWebViewIndex]
@@ -719,7 +723,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findText.addTextChangedListener(object : TextWatcher {
+        findText?.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 val searchText = s.toString().replace("'", "\\'")
                 if (searchText.isEmpty()) {
