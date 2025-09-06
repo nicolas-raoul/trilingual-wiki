@@ -131,8 +131,24 @@ class FullscreenImageActivity : AppCompatActivity() {
             
             // Handle direct upload.wikimedia.org URLs that are SVG
             if (imageUrl.contains("upload.wikimedia.org") && imageUrl.contains(".svg")) {
-                // Extract filename from the URL
-                val fileName = imageUrl.substringAfterLast("/")
+                val fileName = if (imageUrl.contains("/thumb/")) {
+                    // For thumbnail URLs like:
+                    // https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Tennis_pictogram.svg/40px-Tennis_pictogram.svg.png
+                    // We need to extract "Tennis_pictogram.svg" from the path, not "40px-Tennis_pictogram.svg.png"
+                    val pathSegments = imageUrl.split("/")
+                    val thumbIndex = pathSegments.indexOf("thumb")
+                    if (thumbIndex >= 0 && thumbIndex + 3 < pathSegments.size) {
+                        // The SVG filename is at position thumbIndex + 3 (after thumb/x/xx/)
+                        pathSegments[thumbIndex + 3]
+                    } else {
+                        // Fallback to original logic if path structure is unexpected
+                        imageUrl.substringAfterLast("/")
+                    }
+                } else {
+                    // For direct SVG URLs, use the last segment as before
+                    imageUrl.substringAfterLast("/")
+                }
+                
                 Log.d(TAG, "Extracted filename from direct URL: $fileName")
                 
                 // Use Special:Redirect service

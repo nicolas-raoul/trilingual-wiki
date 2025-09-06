@@ -945,7 +945,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // Inject CSS to add padding to prevent text cropping at edges and hide Wikipedia's top banner
+            // Inject CSS to add padding to prevent text cropping at edges and hide Wikipedia's top banner and navigation elements
             // Also inject JavaScript to intercept image clicks for native full-screen viewing
             view?.evaluateJavascript("""
                 (function() {
@@ -961,8 +961,58 @@ class MainActivity : AppCompatActivity() {
                         '.page-header { display: none !important; } ' +
                         '#mw-mf-page-center > .header { display: none !important; } ' +
                         '.mw-header { display: none !important; } ' +
+                        '.page-actions-menu { display: none !important; } ' +
+                        '.talk-tab { display: none !important; } ' +
+                        '.page-tabs { display: none !important; } ' +
+                        '.namespace-tabs { display: none !important; } ' +
+                        '.minerva-page-tabs { display: none !important; } ' +
+                        '.minerva-page-actions { display: none !important; } ' +
+                        '.mw-ui-icon-article { display: none !important; } ' +
+                        '.mw-ui-icon-talk { display: none !important; } ' +
+                        '.namespace-0 { display: none !important; } ' +
+                        '.namespace-1 { display: none !important; } ' +
+                        '[data-namespace="0"] { display: none !important; } ' +
+                        '[data-namespace="1"] { display: none !important; } ' +
+                        '.page-summary { display: none !important; } ' +
+                        '.last-modified-bar { display: none !important; } ' +
+                        '.language-selector { display: none !important; } ' +
+                        '.mw-ui-icon-language-switcher { display: none !important; } ' +
+                        '.mw-ui-icon-language { display: none !important; } ' +
+                        '.language-button { display: none !important; } ' +
+                        '.mw-ui-icon-download { display: none !important; } ' +
+                        '.download-button { display: none !important; } ' +
+                        '.mw-ui-icon-star { display: none !important; } ' +
+                        '.watch-this-article { display: none !important; } ' +
+                        '.watchstar { display: none !important; } ' +
+                        '.mw-ui-icon-edit { display: none !important; } ' +
+                        '.edit-page { display: none !important; } ' +
+                        '.edit-button { display: none !important; } ' +
+                        '#page-actions { display: none !important; } ' +
+                        '.mw-editsection { display: none !important; } ' +
                         'body { margin-top: 0 !important; padding-top: 0 !important; }';
                     document.head.appendChild(style);
+                    
+                    // Hide elements containing "Article" or "Talk" text
+                    function hideArticleTalkElements() {
+                        var elements = document.querySelectorAll('*');
+                        elements.forEach(function(el) {
+                            if (el.children.length === 0) { // Only check leaf elements
+                                var text = el.textContent && el.textContent.trim();
+                                if (text === 'Article' || text === 'Talk') {
+                                    el.style.display = 'none';
+                                    // Also hide parent if it only contains this element
+                                    var parent = el.parentElement;
+                                    if (parent && parent.children.length === 1) {
+                                        parent.style.display = 'none';
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Run initially and on DOM changes
+                    hideArticleTalkElements();
+                    setTimeout(hideArticleTalkElements, 500); // Run again after initial load
                     
                     // Intercept image clicks to show them natively instead of Wikipedia's image viewer
                     function interceptImageClicks() {
@@ -1058,6 +1108,8 @@ class MainActivity : AppCompatActivity() {
                         if (hasNewImages) {
                             setTimeout(interceptImageClicks, 100);
                         }
+                        // Also check for new Article/Talk elements
+                        setTimeout(hideArticleTalkElements, 100);
                     });
                     
                     observer.observe(document.body, {
