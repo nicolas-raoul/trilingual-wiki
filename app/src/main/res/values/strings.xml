@@ -36,6 +36,9 @@ Thank you for your patience!
     <string name="languages_saved">Languages saved successfully</string>
     <string name="search_languages_hint">Search languages by name or code...</string>
     
+    <!-- Find in article -->
+    <string name="action_find">Find in article</string>
+
     <!-- Random Article -->
     <string name="action_random">Random Article</string>
     <string name="loading_random_article">Finding random article…</string>

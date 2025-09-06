@@ -79,6 +79,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var suggestionsRecyclerView: RecyclerView
     private lateinit var suggestionsAdapter: SearchSuggestionsAdapter
     private var searchJob: Job? = null
+
+    private lateinit var findBar: ConstraintLayout
+    private lateinit var findText: EditText
+    private lateinit var findCount: TextView
+    private lateinit var findPrevious: ImageView
+    private lateinit var findNext: ImageView
+    private lateinit var findClose: ImageView
+
+    private data class FindResult(var activeMatchOrdinal: Int = 0, var numberOfMatches: Int = 0)
+    private val findResults = mutableListOf<FindResult>()
+    private var activeWebViewIndex = 0
+
     private var programmaticTextChange = false
     private var isConfigurationChanging = false
     private var isRestoringFromConfigChange = false
@@ -86,6 +98,17 @@ class MainActivity : AppCompatActivity() {
     private var isProgrammaticLoad = false
     private var pagesToLoad = 0
     private var pagesLoaded = 0
+
+    inner class FindInterface(private val webViewIndex: Int) {
+        @JavascriptInterface
+        fun onFindResult(numberOfMatches: Int, activeMatchOrdinal: Int) {
+            runOnUiThread {
+                findResults[webViewIndex].numberOfMatches = numberOfMatches
+                findResults[webViewIndex].activeMatchOrdinal = activeMatchOrdinal
+                updateFindCount()
+            }
+        }
+    }
     private val currentWikidataId = MutableStateFlow<String?>(null)
     private lateinit var isBookmarked: StateFlow<Boolean>
     private var bookmarkMenuItem: MenuItem? = null
@@ -97,6 +120,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var llmManager: LlmManager
+    private var findJs: String? = null
 
     companion object {
         private const val TAG = "MainActivity"
@@ -174,6 +198,15 @@ class MainActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
+        // Read find.js
+        try {
+            assets.open("find.js").bufferedReader().use {
+                findJs = it.readText()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read find.js", e)
+        }
+
         // Initialize language manager and load configured languages
         languageManager = LanguageManager(this)
         loadConfiguredLanguages()
@@ -186,6 +219,13 @@ class MainActivity : AppCompatActivity() {
         webviewContainer = findViewById(R.id.webview_container)
         suggestionsRecyclerView = findViewById(R.id.search_suggestions_recycler_view)
 
+        findBar = findViewById(R.id.find_bar)
+        findText = findViewById(R.id.find_text)
+        findCount = findViewById(R.id.find_count)
+        findPrevious = findViewById(R.id.find_previous)
+        findNext = findViewById(R.id.find_next)
+        findClose = findViewById(R.id.find_close)
+
         createWebViews()
 
         ViewCompat.setOnApplyWindowInsetsListener(mainLayout) { view, windowInsets ->
@@ -196,6 +236,7 @@ class MainActivity : AppCompatActivity() {
 
         setupSuggestions()
         setupSearchTextWatcher()
+        setupFindBar()
 
         isBookmarked = currentWikidataId.flatMapLatest { id ->
             if (id == null) {
@@ -369,6 +410,10 @@ class MainActivity : AppCompatActivity() {
                 showLanguageSettingsDialog()
                 true
             }
+            R.id.action_find -> {
+                findBar.visibility = View.VISIBLE
+                true
+            }
             R.id.action_random -> {
                 Log.d(TAG, "Random article action clicked")
                 lifecycleScope.launch {
@@ -421,12 +466,14 @@ class MainActivity : AppCompatActivity() {
         webviewContainer.removeAllViews()
         webViews.clear()
         progressBarMap.clear()
+        findResults.clear()
+        activeWebViewIndex = 0
 
         // Set container orientation based on preference
         val isVertical = languageManager.isVerticalLayout()
         webviewContainer.orientation = if (isVertical) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
 
-        for (lang in displayLanguages) {
+        displayLanguages.forEachIndexed { index, lang ->
             val frameLayout = FrameLayout(this)
             val layoutParams = if (isVertical) {
                 // Vertical layout: equal height distribution
@@ -528,7 +575,7 @@ class MainActivity : AppCompatActivity() {
 
             webviewContainer.addView(frameLayout)
 
-            setupWebView(webView, lang)
+            setupWebView(webView, lang, index)
         }
     }
 
@@ -613,6 +660,84 @@ class MainActivity : AppCompatActivity() {
             isRestoringFromConfigChange = false
             Log.d(TAG, "onConfigurationChanged: Reset restoration flag")
         }
+    }
+
+    private fun setupFindBar() {
+        findClose.setOnClickListener {
+            findBar.visibility = View.GONE
+            val searchText = ""
+            webViews.forEach { it.evaluateJavascript("highlightAll('$searchText')", null) }
+            findText.text.clear()
+            hideKeyboard()
+        }
+
+        findPrevious.setOnClickListener {
+            if (webViews.isEmpty() || findResults.isEmpty()) return@setOnClickListener
+
+            val currentResult = findResults[activeWebViewIndex]
+            if (currentResult.numberOfMatches > 0 && currentResult.activeMatchOrdinal > 0) {
+                webViews[activeWebViewIndex].evaluateJavascript("highlightNext(false)", null)
+            } else {
+                // Move to the previous webview with matches
+                var prevWebViewIndex = (activeWebViewIndex - 1 + webViews.size) % webViews.size
+                while (prevWebViewIndex != activeWebViewIndex) {
+                    if (findResults[prevWebViewIndex].numberOfMatches > 0) {
+                        activeWebViewIndex = prevWebViewIndex
+                        webViews[activeWebViewIndex].evaluateJavascript("highlightNext(false, true)", null) // `true` to go to last match
+                        return@setOnClickListener
+                    }
+                    prevWebViewIndex = (prevWebViewIndex - 1 + webViews.size) % webViews.size
+                }
+                // If no other webview has matches, but the current one does, cycle within the current one
+                if (currentResult.numberOfMatches > 0) {
+                    webViews[activeWebViewIndex].evaluateJavascript("highlightNext(false)", null)
+                }
+            }
+        }
+
+        findNext.setOnClickListener {
+            if (webViews.isEmpty() || findResults.isEmpty()) return@setOnClickListener
+
+            val currentResult = findResults[activeWebViewIndex]
+            if (currentResult.numberOfMatches > 0 && currentResult.activeMatchOrdinal < currentResult.numberOfMatches - 1) {
+                webViews[activeWebViewIndex].evaluateJavascript("highlightNext(true)", null)
+            } else {
+                // Move to the next webview with matches
+                var nextWebViewIndex = (activeWebViewIndex + 1) % webViews.size
+                while (nextWebViewIndex != activeWebViewIndex) {
+                    if (findResults[nextWebViewIndex].numberOfMatches > 0) {
+                        activeWebViewIndex = nextWebViewIndex
+                        webViews[activeWebViewIndex].evaluateJavascript("highlightNext(true, true)", null) // `true` to go to first match
+                        return@setOnClickListener
+                    }
+                    nextWebViewIndex = (nextWebViewIndex + 1) % webViews.size
+                }
+                // If no other webview has matches, but the current one does, cycle within the current one
+                if (currentResult.numberOfMatches > 0) {
+                     webViews[activeWebViewIndex].evaluateJavascript("highlightNext(true)", null)
+                }
+            }
+        }
+
+        findText.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                val searchText = s.toString().replace("'", "\\'")
+                if (searchText.isEmpty()) {
+                    webViews.forEach { it.evaluateJavascript("highlightAll('')", null) }
+                    findResults.forEach {
+                        it.numberOfMatches = 0
+                        it.activeMatchOrdinal = 0
+                    }
+                    updateFindCount()
+                } else {
+                    webViews.forEach { webView ->
+                        webView.evaluateJavascript("highlightAll('$searchText')", null)
+                    }
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -937,6 +1062,8 @@ class MainActivity : AppCompatActivity() {
                     });
                 })();
             """, null)
+
+            findJs?.let { view?.evaluateJavascript(it, null) }
             
             progressBarMap[view]?.visibility = View.GONE
             view?.visibility = View.VISIBLE
@@ -1032,7 +1159,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun setupWebView(webView: WebView, lang: String) {
+    private fun setupWebView(webView: WebView, lang: String, index: Int) {
         Log.d(TAG, "setupWebView: Setting up $lang WebView.")
         webView.webViewClient = TrilingualWebViewClient(lang)
         val settings = webView.settings
@@ -1042,9 +1169,27 @@ class MainActivity : AppCompatActivity() {
         settings.displayZoomControls = false
         settings.textZoom = 100
         webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+
+        findResults.add(FindResult())
         
         // Add JavaScript interface for native image viewing
         webView.addJavascriptInterface(ImageViewerInterface(), "ImageViewer")
+        webView.addJavascriptInterface(FindInterface(index), "Find")
+    }
+
+    private fun updateFindCount() {
+        val totalMatches = findResults.sumOf { it.numberOfMatches }
+        var currentGlobalMatch = 0
+        for (i in 0 until activeWebViewIndex) {
+            currentGlobalMatch += findResults[i].numberOfMatches
+        }
+        currentGlobalMatch += findResults[activeWebViewIndex].activeMatchOrdinal + 1
+
+        if (totalMatches == 0) {
+            findCount.text = "0/0"
+        } else {
+            findCount.text = "$currentGlobalMatch/$totalMatches"
+        }
     }
 
     private fun updateStatus(message: String) {
