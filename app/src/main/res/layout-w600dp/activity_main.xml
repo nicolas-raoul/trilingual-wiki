@@ -28,12 +28,10 @@
         android:inputType="text"
         app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/status_text_view"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        app:layout_constraintHorizontal_weight="2"
+        app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp"
         android:layout_marginStart="16dp"
-        android:layout_marginEnd="8dp" />
+        android:layout_marginEnd="16dp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/search_suggestions_recycler_view"
@@ -45,20 +43,6 @@
         android:visibility="gone"
         android:background="?android:attr/colorBackground"
         android:elevation="8dp"/>
-
-    <TextView
-        android:id="@+id/status_text_view"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="Enter a search term to begin."
-        app:layout_constraintTop_toTopOf="@+id/search_bar"
-        app:layout_constraintBottom_toBottomOf="@+id/search_bar"
-        app:layout_constraintStart_toEndOf="@+id/search_bar"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_weight="1"
-        android:layout_marginEnd="16dp"
-        android:gravity="start|center_vertical"
-        android:textAppearance="?android:attr/textAppearanceSmall" />
 
     <LinearLayout
         android:id="@+id/webview_container"
