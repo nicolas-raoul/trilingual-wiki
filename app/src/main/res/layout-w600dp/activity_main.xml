@@ -50,7 +50,7 @@
         android:id="@+id/status_text_view"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Enter a search term to begin."
+        android:text=""
         app:layout_constraintTop_toTopOf="@+id/search_bar"
         app:layout_constraintBottom_toBottomOf="@+id/search_bar"
         app:layout_constraintStart_toEndOf="@+id/search_bar"
