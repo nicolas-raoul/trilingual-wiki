@@ -104,7 +104,7 @@ class FullscreenImageActivity : AppCompatActivity() {
      */
     private fun setupPhotoView() {
         // Configure zoom levels
-        imageView.minimumScale = 0.5f  // Allow zooming out slightly for better viewing
+        imageView.minimumScale = 1.0f  // Prevent zooming out beyond initial fit-to-screen size
         imageView.mediumScale = 2.0f   // Medium zoom level for double-tap
         imageView.maximumScale = 5.0f  // Maximum zoom to prevent excessive pixelation
         
