@@ -111,9 +111,6 @@ class FullscreenImageActivity : AppCompatActivity() {
         // Set scale type to fit center initially
         imageView.scaleType = ImageView.ScaleType.FIT_CENTER
         
-        // Allow zooming out beyond fit-center for better viewing
-        imageView.isZoomEnabled = true
-        
         // Log zoom changes for debugging
         imageView.setOnScaleChangeListener { scaleFactor, focusX, focusY ->
             Log.d(TAG, "Image scale changed to: $scaleFactor")
