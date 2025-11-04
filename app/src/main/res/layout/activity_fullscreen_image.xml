@@ -6,13 +6,11 @@
     android:clickable="true"
     android:focusable="true">
 
-    <!-- Image view that takes up the full screen -->
-    <ImageView
+    <!-- Image view that takes up the full screen with zoom and pan capabilities -->
+    <com.github.chrisbanes.photoview.PhotoView
         android:id="@+id/fullscreen_image_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:adjustViewBounds="true"
-        android:scaleType="fitCenter"
         android:contentDescription="Full screen image" />
 
     <!-- Progress bar for loading - now horizontal for actual progress -->

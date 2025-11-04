@@ -21,11 +21,13 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
+import com.github.chrisbanes.photoview.PhotoView
 
 /**
  * Full-screen image viewer activity that displays images over all panels.
  * This provides a native Android full-screen image viewing experience
  * that overlays the entire app instead of using Wikipedia's image viewer.
+ * Supports zoom and pan gestures for better image viewing experience.
  */
 class FullscreenImageActivity : AppCompatActivity() {
 
@@ -34,7 +36,7 @@ class FullscreenImageActivity : AppCompatActivity() {
         private const val TAG = "FullscreenImageActivity"
     }
 
-    private lateinit var imageView: ImageView
+    private lateinit var imageView: PhotoView
     private lateinit var progressBar: ProgressBar
     private lateinit var closeButton: ImageButton
     private val progressHandler = Handler(Looper.getMainLooper())
@@ -55,6 +57,9 @@ class FullscreenImageActivity : AppCompatActivity() {
         imageView = findViewById(R.id.fullscreen_image_view)
         progressBar = findViewById(R.id.loading_progress)
         closeButton = findViewById(R.id.close_button)
+        
+        // Configure PhotoView for optimal zoom and pan experience
+        setupPhotoView()
         
         // Set up close button
         closeButton.setOnClickListener { finish() }
@@ -91,6 +96,25 @@ class FullscreenImageActivity : AppCompatActivity() {
         
         // Set system bar colors using modern approach
         window.setDecorFitsSystemWindows(false)
+    }
+    
+    /**
+     * Configure PhotoView for optimal zoom and pan experience.
+     * Sets up zoom bounds, scale types, and gesture behaviors.
+     */
+    private fun setupPhotoView() {
+        // Configure zoom levels
+        imageView.minimumScale = 1.0f  // Prevent zooming out beyond initial fit-to-screen size
+        imageView.mediumScale = 2.0f   // Medium zoom level for double-tap
+        imageView.maximumScale = 5.0f  // Maximum zoom to prevent excessive pixelation
+        
+        // Set scale type to fit center initially
+        imageView.scaleType = ImageView.ScaleType.FIT_CENTER
+        
+        // Log zoom changes for debugging
+        imageView.setOnScaleChangeListener { scaleFactor, focusX, focusY ->
+            Log.d(TAG, "Image scale changed to: $scaleFactor")
+        }
     }
     
     private fun setupBackHandler() {
