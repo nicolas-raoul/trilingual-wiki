@@ -44,6 +44,7 @@ Thank you for your patience!
     <!-- About screen -->
     <string name="action_about">About</string>
     <string name="about_message">Rosette is developed by Nicolas Raoul.\n\nIf you find any bug, please let me know by filing an issue at https://github.com/nicolas-raoul/trilingual-wiki.\n\nThis app is not endorsed by nor affiliated with the Wikimedia Foundation.</string>
+    <string name="network_error">No internet connection. Please check your network settings.</string>
     <string-array name="supported_ask_devices">
         <item>Pixel 10</item>
         <item>Pixel 9</item>
