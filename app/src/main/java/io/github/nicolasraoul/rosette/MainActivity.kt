@@ -1364,7 +1364,7 @@ class MainActivity : AppCompatActivity() {
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Error during random article search on $lang.wikipedia.org", e)
                     showNetworkError()
-                    return // Exit the function on network error
+                    return // Exit the entire function on network error
                 }
                 delay(1000) // Small delay between attempts
             }
