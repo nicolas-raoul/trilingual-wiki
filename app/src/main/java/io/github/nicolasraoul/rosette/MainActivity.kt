@@ -144,20 +144,26 @@ class MainActivity : AppCompatActivity() {
             if (wikidataId != null) {
                 Log.d(TAG, "Selected bookmark with Wikidata ID: $wikidataId")
                 lifecycleScope.launch {
-                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
-                    if (claimsResponse.isSuccessful) {
-                        val entity = claimsResponse.body()?.entities?.get(wikidataId)
-                        val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
-                        val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
-                    programmaticTextChange = true
-                    searchBar.setText(label)
-                        if (sitelinks != null) {
-                            performFullSearch(label, sitelinks, wikidataId)
+                    try {
+                        val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+                        if (claimsResponse.isSuccessful) {
+                            val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                            val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                            val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
+                            programmaticTextChange = true
+                            searchBar.setText(label)
+                            if (sitelinks != null) {
+                                performFullSearch(label, sitelinks, wikidataId)
+                            } else {
+                                performFullSearch(label, wikidataId = wikidataId)
+                            }
                         } else {
-                            performFullSearch(label, wikidataId = wikidataId)
+                            Toast.makeText(this@MainActivity, "Failed to load bookmark", Toast.LENGTH_SHORT).show()
                         }
-                    } else {
-                        Toast.makeText(this@MainActivity, "Failed to load bookmark", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Log.e(TAG, "Network error loading bookmark", e)
+                        showNetworkError()
                     }
                 }
             }
@@ -235,37 +241,51 @@ class MainActivity : AppCompatActivity() {
             if (lastWikidataId != null) {
                 Log.d(TAG, "onCreate: Found last visited article with Wikidata ID: $lastWikidataId")
                 lifecycleScope.launch {
-                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = lastWikidataId)
-                    if (claimsResponse.isSuccessful) {
-                        val entity = claimsResponse.body()?.entities?.get(lastWikidataId)
-                        val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
-                        val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
-                        if (sitelinks != null) {
-                            performFullSearch(label, sitelinks, lastWikidataId)
+                    try {
+                        val claimsResponse = wikipediaApiService.getEntityClaims(ids = lastWikidataId)
+                        if (claimsResponse.isSuccessful) {
+                            val entity = claimsResponse.body()?.entities?.get(lastWikidataId)
+                            val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                            val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
+                            if (sitelinks != null) {
+                                performFullSearch(label, sitelinks, lastWikidataId)
+                            } else {
+                                performFullSearch(label, wikidataId = lastWikidataId)
+                            }
                         } else {
-                            performFullSearch(label, wikidataId = lastWikidataId)
+                            // Fallback to default if API call fails
+                            loadDefaultPages()
                         }
-                    } else {
-                        // Fallback to default if API call fails
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Log.e(TAG, "onCreate: Network error loading last visited article", e)
+                        showNetworkError()
                         loadDefaultPages()
                     }
                 }
             } else {
                 Log.d(TAG, "onCreate: No last visited article found, loading Q8171.")
                 lifecycleScope.launch {
-                    val wikidataId = "Q8171"
-                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
-                    if (claimsResponse.isSuccessful) {
-                        val entity = claimsResponse.body()?.entities?.get(wikidataId)
-                        val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
-                        val label = entity?.labels?.get("en")?.value ?: "Q8171"
-                        if (sitelinks != null) {
-                            performFullSearch(label, sitelinks, wikidataId)
+                    try {
+                        val wikidataId = "Q8171"
+                        val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+                        if (claimsResponse.isSuccessful) {
+                            val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                            val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                            val label = entity?.labels?.get("en")?.value ?: "Q8171"
+                            if (sitelinks != null) {
+                                performFullSearch(label, sitelinks, wikidataId)
+                            } else {
+                                performFullSearch(label, wikidataId = wikidataId)
+                            }
                         } else {
-                            performFullSearch(label, wikidataId = wikidataId)
+                            // Fallback to default if API call fails
+                            loadDefaultPages()
                         }
-                    } else {
-                        // Fallback to default if API call fails
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Log.e(TAG, "onCreate: Network error loading default article", e)
+                        showNetworkError()
                         loadDefaultPages()
                     }
                 }
@@ -544,19 +564,26 @@ class MainActivity : AppCompatActivity() {
             // Preserve current article by reloading it
             Log.d(TAG, "recreateWebViews: Preserving current article with Wikidata ID: $currentWikidataIdValue")
             lifecycleScope.launch {
-                val claimsResponse = wikipediaApiService.getEntityClaims(ids = currentWikidataIdValue)
-                if (claimsResponse.isSuccessful) {
-                    val entity = claimsResponse.body()?.entities?.get(currentWikidataIdValue)
-                    val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
-                    val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
-                    if (sitelinks != null) {
-                        performFullSearch(label, sitelinks, currentWikidataIdValue)
+                try {
+                    val claimsResponse = wikipediaApiService.getEntityClaims(ids = currentWikidataIdValue)
+                    if (claimsResponse.isSuccessful) {
+                        val entity = claimsResponse.body()?.entities?.get(currentWikidataIdValue)
+                        val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                        val label = entity?.labels?.get("en")?.value ?: "Unknown Title"
+                        if (sitelinks != null) {
+                            performFullSearch(label, sitelinks, currentWikidataIdValue)
+                        } else {
+                            performFullSearch(label, wikidataId = currentWikidataIdValue)
+                        }
                     } else {
-                        performFullSearch(label, wikidataId = currentWikidataIdValue)
+                        // Fallback to loading base URLs if API call fails
+                        Log.w(TAG, "recreateWebViews: Failed to fetch article data, falling back to base URLs")
+                        loadDefaultPages()
                     }
-                } else {
-                    // Fallback to loading base URLs if API call fails
-                    Log.w(TAG, "recreateWebViews: Failed to fetch article data, falling back to base URLs")
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.e(TAG, "recreateWebViews: Network error reloading article", e)
+                    showNetworkError()
                     loadDefaultPages()
                 }
             }
@@ -765,17 +792,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun performSearchFromSuggestion(suggestion: SearchSuggestion) {
         lifecycleScope.launch {
-            val claimsResponse = wikipediaApiService.getEntityClaims(ids = suggestion.id)
-            if (claimsResponse.isSuccessful) {
-                val entity = claimsResponse.body()?.entities?.get(suggestion.id)
-                val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
-                if (sitelinks != null) {
-                    val primaryTitle = sitelinks["enwiki"] ?: sitelinks.values.firstOrNull() ?: suggestion.label
-                    performFullSearch(primaryTitle, sitelinks, suggestion.id)
+            try {
+                val claimsResponse = wikipediaApiService.getEntityClaims(ids = suggestion.id)
+                if (claimsResponse.isSuccessful) {
+                    val entity = claimsResponse.body()?.entities?.get(suggestion.id)
+                    val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                    if (sitelinks != null) {
+                        val primaryTitle = sitelinks["enwiki"] ?: sitelinks.values.firstOrNull() ?: suggestion.label
+                        performFullSearch(primaryTitle, sitelinks, suggestion.id)
+                    } else {
+                        performFullSearch(suggestion.label)
+                    }
                 } else {
                     performFullSearch(suggestion.label)
                 }
-            } else {
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.e(TAG, "Network error loading search suggestion", e)
+                showNetworkError()
+                // Fallback to search with just the label
                 performFullSearch(suggestion.label)
             }
         }
@@ -1010,21 +1045,29 @@ class MainActivity : AppCompatActivity() {
                     searchBar.setText(articleTitle)
 
                     lifecycleScope.launch {
-                        val wikidataId = getWikidataIdForTitle(webViewIdentifier, articleTitle)
-                        if (wikidataId != null) {
-                            val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
-                            if (claimsResponse.isSuccessful) {
-                                val entity = claimsResponse.body()?.entities?.get(wikidataId)
-                                val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
-                                if (sitelinks != null) {
-                                    performFullSearch(articleTitle, sitelinks, wikidataId)
+                        try {
+                            val wikidataId = getWikidataIdForTitle(webViewIdentifier, articleTitle)
+                            if (wikidataId != null) {
+                                val claimsResponse = wikipediaApiService.getEntityClaims(ids = wikidataId)
+                                if (claimsResponse.isSuccessful) {
+                                    val entity = claimsResponse.body()?.entities?.get(wikidataId)
+                                    val sitelinks = entity?.sitelinks?.mapValues { it.value.title }
+                                    if (sitelinks != null) {
+                                        performFullSearch(articleTitle, sitelinks, wikidataId)
+                                    } else {
+                                        performFullSearch(articleTitle)
+                                    }
                                 } else {
                                     performFullSearch(articleTitle)
                                 }
                             } else {
                                 performFullSearch(articleTitle)
                             }
-                        } else {
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                            Log.e(TAG, "Network error loading article from link", e)
+                            showNetworkError()
+                            // Fallback to search with just the article title
                             performFullSearch(articleTitle)
                         }
                     }
@@ -1103,6 +1146,10 @@ class MainActivity : AppCompatActivity() {
         statusTextView.visibility = View.VISIBLE
         statusTextView.text = message
         Log.d(TAG, "Status: $message")
+    }
+
+    private fun showNetworkError() {
+        Toast.makeText(this, R.string.network_error, Toast.LENGTH_LONG).show()
     }
 
     private fun getWikipediaBaseUrl(lang: String): String = "https://$lang.m.wikipedia.org"
@@ -1316,6 +1363,8 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     Log.e(TAG, "Error during random article search on $lang.wikipedia.org", e)
+                    showNetworkError()
+                    return // Exit the entire function on network error
                 }
                 delay(1000) // Small delay between attempts
             }
