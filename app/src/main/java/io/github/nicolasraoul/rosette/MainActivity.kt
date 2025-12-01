@@ -810,6 +810,8 @@ class MainActivity : AppCompatActivity() {
                 if (e is CancellationException) throw e
                 Log.e(TAG, "Network error loading search suggestion", e)
                 showNetworkError()
+                // Fallback to search with just the label
+                performFullSearch(suggestion.label)
             }
         }
     }
@@ -1065,6 +1067,8 @@ class MainActivity : AppCompatActivity() {
                             if (e is CancellationException) throw e
                             Log.e(TAG, "Network error loading article from link", e)
                             showNetworkError()
+                            // Fallback to search with just the article title
+                            performFullSearch(articleTitle)
                         }
                     }
                     return true
