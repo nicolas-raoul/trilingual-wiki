@@ -62,7 +62,7 @@ class ZoomPanImageTest {
         val qualityExpectations = listOf(
             "Zoomed images should remain sharp up to reasonable zoom levels",
             "Image interpolation should be smooth during zoom transitions",
-            "No pixelation at moderate zoom levels (2-3x)",
+            "No pixelation should occur at moderate zoom levels (2-3x)",
             "Memory usage should be optimized for large images"
         )
         

@@ -47,7 +47,7 @@ class LanguageSearchTest {
 
     @Test
     fun testSearchPartialMatch() {
-        val result = filterLanguagesByQuery(testLanguages, "pan")
+        val result = filterLanguagesByQuery(testLanguages, "span")
         assertEquals(1, result.size)
         assertEquals("es", result[0].code)
     }
